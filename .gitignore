@@ -1,0 +1,15 @@
+*.000
+*.bck
+*.bak
+*-bak
+*~
+_autosave-*
+*.tmp
+*.o
+*.sublime-project
+*.sublime-workspace
+*_.*
+*.*_
+*.log
+*.d
+

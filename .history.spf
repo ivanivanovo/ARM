@@ -1,0 +1,130 @@
+0x4411 16 bin[ .0r ]bin
+0x4411 |2
+: .cmd ( code --)
+    dup 0xFF / 8 ROT
+    8 RSHIFT 8 
+    bin[ .0R .0R ]bin
+    ;
+0x4411
+hex
+dup
+0x4411 .cmd
+0x1840 .cmd
+0x1888 .cmd
+0xa005 .cmd
+0x4487 .cmd
+0x11a 4 4 * + .hex
+0x118 4 4 * + .hex
+0x11a 4 2 * + .hex
+0x118 4 2 * + .hex
+0x120 0x118 - .
+0x002 .cmd
+0xa002 .cmd
+0x124 0x11a - .
+0x124 0x118 - .
+0x20 0x1c - .
+-2 .uhex
+0xf3ef8000 .ubin
+11110011111011111000ddddssssssss
+s" rot" FindVoc.
+s" -rot" FindVoc.
+oreder
+order
+S" ЖерБёнок-Funt" 2dup UPPERCASE-W type cr
+sh wdr
+sh pswd
+sh pwd
+as
+sh ls
+sh cat tst.d
+as
+sh ls
+sh rm tst.d
+sh ls -l
+sh arm-none-eabi-objdump
+sh arm-none-eabi-objdump -d tst.o >> tst.d
+#def da sh arm-none-eabi-objdump -d tst.o >> tst.d
+da
+see#def as
+da
+da
+sh arm-none-eabi-objdump -d tst.o 
+da
+see#def da
+da
+as
+' da [dump]
+' da (dump)
+2dup type
+3drop
+134685465 64 (dump)
+134685465 64 dump
+134685465 128 dump
+as
+da
+' as >BODY COUNT 
+' da >BODY COUNT
+drop 200 dump
+S" aa" str!
+S" bb" str!
+align 
+S" b" str!
+1 allot
+here .uhex
+0x46c0 .ubin
+
+counter: cc
+0 counter: cc
+cc
+.
+cc .
+as
+ds
+da
+1 0 10 WITHIN
+11 0 10 WITHIN
+S" WITHIN" FindVoc
+S" WITHIN" FindVoc.
+help WITHIN
+11  10 0 WITHIN
+.
+11  10 0 WITHIN .
+11  0 10 WITHIN .
+11  10 2 WITHIN .
+1  10 2 WITHIN .
+2  10 2 WITHIN .
+3  10 2 WITHIN .
+3  2 10 WITHIN .
+123 .) 12 .
+1 32 lshift
+1 31 lshift
+.hex
+1 31 lshift .uhex
+1 31 lshift dup 12 + 2 dup .uhex .uhex
+afd
+eor .
+1 31 lshift dup 12 + 2dup .uhex .uhex
+0xffff 15 lshift dup 12 + 2dup .uhex .uhex
+xor
+0xffff 16 lshift dup 12 + 2dup .uhex .uhex
+0xffffff00 dup 12 + 2dup .uhex .uhex xor .
+0xffffff00 dup 12 + 2dup .hex .hex xor .
+0xffffff00 dup 18 + 2dup .hex .hex xor .
+0xffffff00 dup 108 + 2dup .hex .hex xor .
+fff
+0xffffff00 dup 1008 + 2dup .hex .hex xor .
+0xffffff00 dup 257 + 2dup .hex .hex xor .
+0x80000001 .uhex
+0x80000001 .
+12 .hex
+12 24 lshift .uhex
+12 24 lshift dup .uhex 0x10000000 /mod
+2drop
+12 24 lshift dup .uhex 0x10000000 /mod .uhex .uhex
+12 24 lshift dup .uhex 0x1000000 /mod .uhex .uhex
+10 24 lshift dup .uhex 0x1000000 /mod .uhex .uhex
+10 20 lshift dup .uhex 10 /mod .uhex .uhex
+10 24 lshift dup .uhex 10 /mod .uhex .uhex
+10 24 lshift .cmd
+10 24 lshift 8 hex[ .0r ]hex
+bye

@@ -1,0 +1,11 @@
+#! /usr/bin/spf4
+S" toolbox.f" INCLUDED
+
+: .cmd ( code --)
+    dup 0xFF AND 8 ROT
+    8 RSHIFT 8 
+    bin[ .0R space .0R ]bin
+    ;
+
+#def as sh arm-none-eabi-as -o tst.o tst.s -g
+#def da sh arm-none-eabi-objdump -d tst.o 
