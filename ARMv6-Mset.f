@@ -3,6 +3,11 @@
 \ ARM DDI 0432C (ID113009) Cortex -M0 Revision: r0p0 Technical Reference Manual
 \ iva 24.03.2021
 
+\ imm   - число
+\ imm!2 - число кратное 2 (чётное)
+\ imm!4 - число кратное 4 (дважды чётное)
+\ label24 - очень далекий переход s:J1:J2:imm10:imm11:0
+\ --
 \                                                                                  NZCVQ 
 Assm: ADCS Rd, Rm ;             Encod: 0100000101mmmddd                     Flags: NZCV     Cycles: 1       Action: Rd := Rd + Rm + C-bit                           Notes:  
 Assm: ADDS Rd, Rn, imm ;        Encod: 0001110iiinnnddd                     Flags: NZCV     Cycles: 1       Action: Rd := Rn + imm3                                 Notes: imm3 range 0-7
@@ -10,17 +15,17 @@ Assm: ADDS Rd, imm ;            Encod: 00110dddiiiiiiii                     Flag
 Assm: ADDS Rd, Rn, Rm ;         Encod: 0001100mmmnnnddd                     Flags: NZCV     Cycles: 1       Action: Rd := Rn + Rm                                   Notes: 
 Assm: ADD  Rdn, Rm ;            Encod: 01000100dmmmmddd                                     Cycles: 1       Action: Rd := Rd + Rm                                   Notes: 
 Assm: ADD  {PC,} PC, Rm ;       Encod: 010001001mmmm111                                     Cycles: 3       Action: Pc := PC + Rm                                   Notes: 
-Assm: ADD  Rd, SP, imm ;        Encod: 10101dddiiiiiiii                                     Cycles: 1       Action: Rd := SP + imm8*4                               Notes: imm8*4 range 0-1020 (word-aligned)         
-Assm: ADD  {SP,} SP, imm ;      Encod: 101100000iiiiiii                                     Cycles: 1       Action: SP := SP + imm7*4                               Notes: imm7*4 range 0-508  (word-aligned)
-Assm: ADR  Rd, imm ;            Encod: 10100dddiiiiiiii                                     Cycles: 1       Action: Rd := PC + imm8*4                               Notes: imm8*4 range 0-1020 (word-aligned)
+Assm: ADD  Rd, SP, imm!4 ;      Encod: 10101dddiiiiiiii                                     Cycles: 1       Action: Rd := SP + imm8*4                               Notes: imm8*4 range 0-1020 (word-aligned)         
+Assm: ADD  {SP,} SP, imm!4 ;    Encod: 101100000iiiiiii                                     Cycles: 1       Action: SP := SP + imm7*4                               Notes: imm7*4 range 0-508  (word-aligned)
+Assm: ADR  Rd, imm!4 ;          Encod: 10100dddiiiiiiii                                     Cycles: 1       Action: Rd := PC + imm8*4                               Notes: imm8*4 range 0-1020 (word-aligned)
 Assm: ANDS Rdn, Rm ;            Encod: 0100000000mmmddd                     Flags: NZ       Cycles: 1       Action: Rd := Rd AND Rm                                 Notes: 
 Assm: ASRS Rd,  Rm, imm ;       Encod: 00010iiiiimmmddd                     Flags: NZC      Cycles: 1       Action: Rd := Rm ASR imm5                               Notes: Allowed shifts 1-32
 Assm: ASRS Rdn, Rm ;            Encod: 0100000100mmmddd                     Flags: NZC      Cycles: 1       Action: Rd := Rd ASR Rs[7:0]                            Notes: C flag unaffected if Rs[7:0] is 0   
+Assm: B label ;                 Encod: 11100iiiiiiiiiii                                     Cycles: 3       Action: PC := label                                     Notes: label=PC + Simm11*2
 Assm: B{cond} label ;           Encod: 1101cccciiiiiiii                                     Cycles: 1|3     Action: If {cond} then PC := label                      Notes: label=PC + Simm8*2
-                                Encod: 11100iiiiiiiiiii                                     Cycles: 3       Action: PC := label                                     Notes: label=PC + Simm11*2
 Assm: BICS Rdn, Rm ;            Encod: 0100001110mmmddd                     Flags: NZ       Cycles: 1       Action: Rd := Rd AND NOT Rm                             Notes: 
-Assm: BKPT imm8 ;               Encod: 10111110iiiiiiii                                                     Action: BreakPoint                                      Notes:   
-Assm: BL label ;                Encod: 11110sllllllllll11j1kiiiiiiiiiii                     Cycles: 4       Action: LR := PC+1, PC := label                         Notes: label must be within ±4MB of current instruction
+Assm: BKPT imm ;                Encod: 10111110iiiiiiii                                                     Action: BreakPoint                                      Notes:   
+Assm: BL label24 ;              Encod: 11110sjjjjjjjjjj11a1biiiiiiiiiii                     Cycles: 4       Action: LR := PC+1, PC := label                         Notes: label=PC + Simm24*2
 Assm: BLX Rm ;                  Encod: 010001111mmmm000                                     Cycles: 3       Action: LR := PC - 2 +1, PC := Rm                       Notes: Rm=adr+1
 Assm: BX  Rm ;                  Encod: 010001110mmmm000                                     Cycles: 3       Action: PC := Rm                                        Notes: Rm=adr+1
 Assm: CMN Rn, Rm ;              Encod: 0100001011mmmnnn                     Flags: NZCV     Cycles: 1       Action: APSR flags on Rn + Rm                           Notes:
@@ -38,9 +43,9 @@ Assm: LDM Rn{!},<regslist> ;    Encod: 11001nnnllllllll                         
                                                                                                                                                                     Notes: Rn, { .. Rn.. } -> Rn including  
 Assm: LDMIA -> LDM ;                                                                                                                                                Notes: synonym LDM        
 Assm: LDMFD -> LDM ;                                                                                                                                                Notes: synonym LDM        
-Assm: LDR Rt, [Rn{, imm}] ;     Encod: 01101iiiiinnnttt                                     Cycles: 2       Action: Rd := [Rn + imm5*4]                             Notes: imm5*4 range 0-124  (word-aligned)
-Assm: LDR Rt, [SP{, imm}] ;     Encod: 10011tttiiiiiiii                                     Cycles: 2       Action: Rd := [SP + imm8*4]                             Notes: imm8*4 range 0-1020 (word-aligned) 
-Assm: LDR Rt, label ;           Encod: 01001tttiiiiiiii                                     Cycles: 2       Action: Rt := [PC + imm8*4]                             Notes: imm8*4 range 0-1020 (word-aligned)
+Assm: LDR Rt, [Rn{, imm!4}] ;   Encod: 01101iiiiinnnttt                                     Cycles: 2       Action: Rd := [Rn + imm5*4]                             Notes: imm5*4 range 0-124  (word-aligned)
+Assm: LDR Rt, [SP{, imm!4}] ;   Encod: 10011tttiiiiiiii                                     Cycles: 2       Action: Rd := [SP + imm8*4]                             Notes: imm8*4 range 0-1020 (word-aligned) 
+Assm: LDR Rt, label!4 ;         Encod: 01001tttiiiiiiii                                     Cycles: 2       Action: Rt := [PC + imm8*4]                             Notes: imm8*4 range 0-1020 (word-aligned)
 Assm: LDR Rt, [Rn, Rm]  ;       Encod: 0101100mmmnnnttt                                     Cycles: 2       Action: Rd := [Rn + Rm]                                 Notes: 
 Assm: LDRB Rt, [Rn{, imm} ] ;   Encod: 01111iiiiinnnttt                                     Cycles: 2       Action: Rd := ZeroExtend([Rn + imm5][7:0])              Notes: Clears bits 31:8, imm5 range 0-31
 Assm: LDRB Rt, [Rn, Rm ] ;      Encod: 0101110mmmnnnttt                                     Cycles: 2       Action: Rd := ZeroExtend([Rn + Rm][7:0])                Notes: Clears bits 31:8
@@ -83,8 +88,8 @@ Assm: SEV ;                     Encod: 1011111101000000                         
 Assm: STM Rn!,<regslist> ;      Encod: 11000nnnllllllll                                     Cycles: 1+N     Action: [Rn-4*i] := R[i], i=[0-7], Rn := Rn - 4*N       Notes:
 Assm: STMEA -> STM ;                                                                                                                                                Notes: synonym STM 
 Assm: STMIA -> STM ;                                                                                                                                                Notes: synonym STM 
-Assm: STR Rt, [Rn{, imm}] ;     Encod: 01100iiiiinnnttt                                     Cycles: 2       Action: [Rn + imm5*4] := Rt                             Notes: imm5*4 range 0-124  (word-aligned)
-Assm: STR Rt, [SP{, imm}] ;     Encod: 10010tttiiiiiiii                                     Cycles: 2       Action: [Sp + imm8*4] := Rt                             Notes: imm8*4 range 0-1020 (word-aligned) 
+Assm: STR Rt, [Rn{, imm!4}] ;   Encod: 01100iiiiinnnttt                                     Cycles: 2       Action: [Rn + imm5*4] := Rt                             Notes: imm5*4 range 0-124  (word-aligned)
+Assm: STR Rt, [SP{, imm!4}] ;   Encod: 10010tttiiiiiiii                                     Cycles: 2       Action: [Sp + imm8*4] := Rt                             Notes: imm8*4 range 0-1020 (word-aligned) 
 Assm: STR Rt, [Rn, Rm] ;        Encod: 0101000mmmnnnttt                                     Cycles: 2       Action: [Rn + Rm] := Rt                                 Notes: 
 Assm: STRB Rt, [Rn{, imm}] ;    Encod: 01110iiiiinnnttt                                     Cycles: 2       Action: [Rn + imm5][7:0] := Rt[7:0]                     Notes: imm5 range 0-31
 Assm: STRB Rt, [Rn, Rm] ;       Encod: 0101010mmmnnnttt                                     Cycles: 2       Action: [Rn + Rm][7:0] := Rt[7:0]                       Notes: 
@@ -93,7 +98,7 @@ Assm: STRH Rt, [Rn, Rm] ;       Encod: 0101001mmmnnnttt                         
 Assm: SUBS Rd, Rn, imm ;        Encod: 0001111iiinnnddd                     Flags: NZCV     Cycles: 1       Action: Rd := Rn – imm3                                 Notes: imm3 range 0-7 
 Assm: SUBS Rdn, imm ;           Encod: 00111dddiiiiiiii                     Flags: NZCV     Cycles: 1       Action: Rd := Rd – imm8                                 Notes: imm8 range 0-255 
 Assm: SUBS Rd, Rn, Rm ;         Encod: 0001101mmmnnnddd                     Flags: NZCV     Cycles: 1       Action: Rd := Rn – Rm                                   Notes: 
-Assm: SUB  {SP,} SP, imm        Encod: 101100001iiiiiii                                     Cycles: 1       Action: SP := SP – imm7*4                               Notes: imm7*4 range 0-508 (word-aligned)
+Assm: SUB  {SP,} SP, imm!4      Encod: 101100001iiiiiii                                     Cycles: 1       Action: SP := SP – imm7*4                               Notes: imm7*4 range 0-508 (word-aligned)
 Assm: SVC imm ;                 Encod: 11011111iiiiiiii                                     Cycles: -       Action: Send event                                      Notes: 
 Assm: SXTB Rd, Rm ;             Encod: 1011001001mmmddd                                     Cycles: 1       Action: Rd[31:0] := SignExtend(Rm[7:0])                 Notes: 
 Assm: SXTH Rd, Rm ;             Encod: 1011001000mmmddd                                     Cycles: 1       Action: Rd[31:0] := SignExtend(Rm[15:0])                Notes: 

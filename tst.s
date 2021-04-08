@@ -14,11 +14,11 @@ tstADD:
     ADD  PC , R8
     add  r8,pc
     add  sp,sp,sp
-    adr  r0, label1
+    //adr  r0, label1
     beq  l2
-    b    l2
+    bl   l2
     b .
-l2: bl   tstADD
+l2: bl   label1
     cmp  r1,r9
     cmp  r1,r2
     ands r0,r1
@@ -37,4 +37,5 @@ label1:
     mov  r8, r1
     mrs  r1, iapsr
     movs r0, r1, asr 3
+    bl l2
     nop

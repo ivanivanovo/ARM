@@ -23,7 +23,6 @@ dup
 0x124 0x11a - .
 0x124 0x118 - .
 0x20 0x1c - .
--2 .uhex
 0xf3ef8000 .ubin
 11110011111011111000ddddssssssss
 s" rot" FindVoc.
@@ -72,15 +71,11 @@ S" b" str!
 1 allot
 here .uhex
 0x46c0 .ubin
-
 counter: cc
 0 counter: cc
 cc
 .
 cc .
-as
-ds
-da
 1 0 10 WITHIN
 11 0 10 WITHIN
 S" WITHIN" FindVoc
@@ -127,4 +122,25 @@ fff
 10 24 lshift dup .uhex 10 /mod .uhex .uhex
 10 24 lshift .cmd
 10 24 lshift 8 hex[ .0r ]hex
+ds
+0xe7 .cmd
+0xe7fe .cmd
+0xfffe .cmd
+1 24 lshift .
+1 24 lshift .hex
+1 24 lshift 1- .hex
+-16777216 .uhex
+16777214 .uhex
+0xf7ff .cmd
+as
+da
+0xffffffe8 .
+
+-1 WIDE_OFFSET_LONG .uhex
+-1 .uhex
+-2 .uhex
+hex
+-2
+DUP 800000 AND
+38 WIDE_OFFSET_LONG .uhex
 bye

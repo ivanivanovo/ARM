@@ -9,3 +9,16 @@ S" toolbox.f" INCLUDED
 
 #def as sh arm-none-eabi-as -o tst.o tst.s -g
 #def da sh arm-none-eabi-objdump -d tst.o 
+
+hex[
+: WIDE_OFFSET_LONG   ( offset - mask )
+    DUP 800000 AND 0= IF \ J1, J2
+        600000 XOR
+    THEN
+    DUP 7FF AND \ i11
+    OVER 1FF800 AND 5 LSHIFT OR \ i10
+    OVER 200000 AND A RSHIFT OR \ J2
+    OVER 400000 AND 9 RSHIFT OR \ J1
+    SWAP 800000 AND 3 LSHIFT OR \ S
+;
+]hex
