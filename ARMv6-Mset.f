@@ -6,7 +6,9 @@
 \ imm   - число
 \ imm!2 - число кратное 2 (чётное)
 \ imm!4 - число кратное 4 (дважды чётное)
-\ label24 - очень далекий переход s:J1:J2:imm10:imm11:0
+\ label - имя, смещение относительно PC, число кратное 2 (чётное)
+\ +label - имя, +смещение относительно PC, число кратное 4 (дважды чётное)
+\ label24 - имя, +-смещение относительно PC, очень далекий переход s:J1:J2:imm10:imm11:0
 \ --
 \                                                                                  NZCVQ 
 Assm: ADCS Rd, Rm ;             Encod: 0100000101mmmddd                     Flags: NZCV     Cycles: 1       Action: Rd := Rd + Rm + C-bit                           Notes:  
@@ -17,7 +19,9 @@ Assm: ADD  Rdn, Rm ;            Encod: 01000100dmmmmddd                         
 Assm: ADD  {PC,} PC, Rm ;       Encod: 010001001mmmm111                                     Cycles: 3       Action: Pc := PC + Rm                                   Notes: 
 Assm: ADD  Rd, SP, imm!4 ;      Encod: 10101dddiiiiiiii                                     Cycles: 1       Action: Rd := SP + imm8*4                               Notes: imm8*4 range 0-1020 (word-aligned)         
 Assm: ADD  {SP,} SP, imm!4 ;    Encod: 101100000iiiiiii                                     Cycles: 1       Action: SP := SP + imm7*4                               Notes: imm7*4 range 0-508  (word-aligned)
-Assm: ADR  Rd, imm!4 ;          Encod: 10100dddiiiiiiii                                     Cycles: 1       Action: Rd := PC + imm8*4                               Notes: imm8*4 range 0-1020 (word-aligned)
+Assm: ADD  Rd, PC, imm!4 ;      Encod: 10100dddiiiiiiii                                     Cycles: 1       Action: Rd := PC + imm8*4                               Notes: imm8*4 range 0-1020 (word-aligned)
+Assm: ADR  Rd, +label ;         Encod: 10100dddiiiiiiii                                     Cycles: 1       Action: Rd := PC + imm8*4                               Notes: imm8*4 range 0-1020 (word-aligned)
+
 Assm: ANDS Rdn, Rm ;            Encod: 0100000000mmmddd                     Flags: NZ       Cycles: 1       Action: Rd := Rd AND Rm                                 Notes: 
 Assm: ASRS Rd,  Rm, imm ;       Encod: 00010iiiiimmmddd                     Flags: NZC      Cycles: 1       Action: Rd := Rm ASR imm5                               Notes: Allowed shifts 1-32
 Assm: ASRS Rdn, Rm ;            Encod: 0100000100mmmddd                     Flags: NZC      Cycles: 1       Action: Rd := Rd ASR Rs[7:0]                            Notes: C flag unaffected if Rs[7:0] is 0   
@@ -45,7 +49,7 @@ Assm: LDMIA -> LDM ;                                                            
 Assm: LDMFD -> LDM ;                                                                                                                                                Notes: synonym LDM        
 Assm: LDR Rt, [Rn{, imm!4}] ;   Encod: 01101iiiiinnnttt                                     Cycles: 2       Action: Rd := [Rn + imm5*4]                             Notes: imm5*4 range 0-124  (word-aligned)
 Assm: LDR Rt, [SP{, imm!4}] ;   Encod: 10011tttiiiiiiii                                     Cycles: 2       Action: Rd := [SP + imm8*4]                             Notes: imm8*4 range 0-1020 (word-aligned) 
-Assm: LDR Rt, label!4 ;         Encod: 01001tttiiiiiiii                                     Cycles: 2       Action: Rt := [PC + imm8*4]                             Notes: imm8*4 range 0-1020 (word-aligned)
+Assm: LDR Rt, +label ;          Encod: 01001tttiiiiiiii                                     Cycles: 2       Action: Rt := [PC + imm8*4]                             Notes: imm8*4 range 0-1020 (word-aligned)
 Assm: LDR Rt, [Rn, Rm]  ;       Encod: 0101100mmmnnnttt                                     Cycles: 2       Action: Rd := [Rn + Rm]                                 Notes: 
 Assm: LDRB Rt, [Rn{, imm} ] ;   Encod: 01111iiiiinnnttt                                     Cycles: 2       Action: Rd := ZeroExtend([Rn + imm5][7:0])              Notes: Clears bits 31:8, imm5 range 0-31
 Assm: LDRB Rt, [Rn, Rm ] ;      Encod: 0101110mmmnnnttt                                     Cycles: 2       Action: Rd := ZeroExtend([Rn + Rm][7:0])                Notes: Clears bits 31:8
@@ -110,5 +114,5 @@ Assm: UXTH Rd, Rm ;             Encod: 1011001010mmmddd                         
 Assm: WFE ;                     Encod: 1011111100100000                                     Cycles: 2       Action: Wait for event, IRQ, FIQ, Imprecise abort, or Debug entry request   Notes: 
 Assm: WFI ;                     Encod: 1011111100110000                                     Cycles: 2       Action: Wait for IRQ, FIQ, Imprecise abort, or Debug entry request          Notes: 
 Assm: YIELD ;                   Encod: 1011111100010000                                     Cycles: 1       Action: Yield control to alternative thread             Notes: 
-
-
+                                                                                                                                                                                                                                                                            
+ADR <Rd>,<label>                                                                

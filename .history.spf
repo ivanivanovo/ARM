@@ -135,7 +135,6 @@ ds
 as
 da
 0xffffffe8 .
-
 -1 WIDE_OFFSET_LONG .uhex
 -1 .uhex
 -2 .uhex
@@ -143,4 +142,37 @@ hex
 -2
 DUP 800000 AND
 38 WIDE_OFFSET_LONG .uhex
+
+123 2 .l
+123 4 .l
+123 8 .l
+123 #bits .
+123 .bin
+wordlist
+constant CmdList
+see vocabulary
+S" ABC" 2 /sting 2dup type
+S" ABC" 2 /string 2dup type
+-1 /string type
+' [DEFINED]
+[DEFINED] .bin 
+.
+[DEFINED] .HEX 
+.
+[DEFINED] .HEXi . 
+' SYNONYM
+' key
+ key
+eeee
+
+' ekey
+' key?
+ key?
+'''
+: aaa 10000 0 do key? if leave then 10 pause loop ;
+aaa
+d
+e
+r
+t
 bye
