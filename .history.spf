@@ -142,7 +142,6 @@ hex
 -2
 DUP 800000 AND
 38 WIDE_OFFSET_LONG .uhex
-
 123 2 .l
 123 4 .l
 123 8 .l
@@ -164,7 +163,6 @@ S" ABC" 2 /string 2dup type
 ' key
  key
 eeee
-
 ' ekey
 ' key?
  key?
@@ -175,4 +173,9 @@ d
 e
 r
 t
+и
+chain.f
+NewChain AsmChain
+AsmChain
+32 dump
 bye

@@ -1,5 +1,8 @@
 #! /usr/bin/spf4
 S" toolbox.f" INCLUDED
+CASE-INS ON
+S" langASM.f"  INCLUDED
+S" ARMv6-Mset.f" INCLUDED
 
 : .cmd ( code --)
     dup 0xFF AND 8 ROT
