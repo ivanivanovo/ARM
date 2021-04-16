@@ -1,19 +1,19 @@
 #! /usr/bin/spf4
+CASE-INS OFF
 S" toolbox.f" INCLUDED
-CASE-INS ON
-S" langASM.f"  INCLUDED
-S" ARMv6-Mset.f" INCLUDED
+ S" langASM.f"  INCLUDED
+\ S" ARMv6-Mset.f" INCLUDED
 
 : .cmd ( code --)
-    dup 0xFF AND 8 ROT
+    DUP 0xFF AND 8 ROT
     8 RSHIFT 8 
-    bin[ .0R space .0R ]bin
+    BIN[ .0R SPACE .0R ]BIN
     ;
 
 #def as sh arm-none-eabi-as -o tst.o tst.s -g
 #def da sh arm-none-eabi-objdump -d tst.o 
 
-hex[
+HEX[
 : WIDE_OFFSET_LONG   ( offset - mask )
     DUP 800000 AND 0= IF \ J1, J2
         600000 XOR
@@ -24,4 +24,5 @@ hex[
     OVER 400000 AND 9 RSHIFT OR \ J1
     SWAP 800000 AND 3 LSHIFT OR \ S
 ;
-]hex
+]HEX
+CASE-INS ON

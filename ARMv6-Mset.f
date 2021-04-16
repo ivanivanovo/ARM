@@ -8,7 +8,7 @@
 \ imm!4 - число кратное 4 (дважды чётное)
 \ label - имя, смещение относительно PC, число кратное 2 (чётное)
 \ +label - имя, +смещение относительно PC, число кратное 4 (дважды чётное)
-\ label24 - имя, +-смещение относительно PC, очень далекий переход s:J1:J2:imm10:imm11:0
+\ sjjii - кодирование смещения относительно PC в вид  s:J1:J2:imm10:imm11:0
 \ --
 \                                                                                  NZCVQ 
 Assm: ADCS Rd, Rm               Encod: 0100000101mmmddd                     Flags: NZCV     Cycles: 1       Action: Rd := Rd + Rm + C-bit                           Notes:  
@@ -28,7 +28,7 @@ Assm: B label                   Encod: 11100iiiiiiiiiii                         
 Assm: B{cond} label             Encod: 1101cccciiiiiiii                                     Cycles: 1|3     Action: If {cond} then PC := label                      Notes: label=PC + Simm8*2
 Assm: BICS Rdn, Rm              Encod: 0100001110mmmddd                     Flags: NZ       Cycles: 1       Action: Rd := Rd AND NOT Rm                             Notes: 
 Assm: BKPT imm                  Encod: 10111110iiiiiiii                                                     Action: BreakPoint                                      Notes:   
-Assm: BL label24                Encod: 11110sjjjjjjjjjj11a1biiiiiiiiiii                     Cycles: 4       Action: LR := PC+1, PC := label                         Notes: label=PC + Simm24*2
+Assm: BL label                  Encod: 11110sjjjjjjjjjj11a1biiiiiiiiiii  Imcod: sjjii       Cycles: 4       Action: LR := PC+1, PC := label                         Notes: label=PC + Simm24*2
 Assm: BLX Rm                    Encod: 010001111mmmm000                                     Cycles: 3       Action: LR := PC - 2 +1, PC := Rm                       Notes: Rm=adr+1
 Assm: BX  Rm                    Encod: 010001110mmmm000                                     Cycles: 3       Action: PC := Rm                                        Notes: Rm=adr+1
 Assm: CMN Rn, Rm                Encod: 0100001011mmmnnn                     Flags: NZCV     Cycles: 1       Action: APSR flags on Rn + Rm                           Notes:
@@ -78,7 +78,7 @@ Assm: NEGS  Rd, Rn              Encod: 0100001001nnnddd                     Flag
 Assm: NOP                       Encod: 1011111100000000                                     Cycles: 1                                                               Notes:
 Assm: ORRS Rdn, Rm              Encod: 0100001100mmmddd                     Flags: NZ       Cycles: 1       Action: Rd := Rd OR Rm                                  Notes: 
 Assm: POP <regslist>            Encod: 10111100llllllll                                     Cycles: 1+N     Action: R[i] := [SP+4*i], i=[0-7], SP := SP + 4*N       Notes:
-Assm: POP <regslist+Pc>         Encod: 10111101llllllll                                     Cycles: 4+N     Action: POP + branch                                    Notes: branch to address loaded to PC
+Assm: POP <regslist+PC>         Encod: 10111101llllllll                                     Cycles: 4+N     Action: POP + branch                                    Notes: branch to address loaded to PC
 Assm: PUSH <regslist>           Encod: 10110100llllllll                                     Cycles: 1+N     Action: [SP-4*i] := R[i], i=[0-7], SP := SP - 4*N       Notes:
 Assm: PUSH <regslist+LR>        Encod: 10110101llllllll                                     Cycles: 1+N+1   Action: PUSH + LR                                       Notes:
 Assm: REV Rd, Rm                Encod: 1011101000mmmddd                                     Cycles: 1       Action: Rd[31:24] := Rm[7:0], Rd[23:16] := Rm[15:8], Rd[15:8] := Rm[23:16], Rd[7:0] := Rm[31:24]    Notes: reverse bytes in word

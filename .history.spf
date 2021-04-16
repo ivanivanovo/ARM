@@ -132,8 +132,6 @@ ds
 -16777216 .uhex
 16777214 .uhex
 0xf7ff .cmd
-as
-da
 0xffffffe8 .
 -1 WIDE_OFFSET_LONG .uhex
 -1 .uhex
@@ -178,4 +176,21 @@ chain.f
 NewChain AsmChain
 AsmChain
 32 dump
+as
+da
+BYE
+..vc
+..ge
+sss
+hi
+..hi
+.
+..al .
+preliminary [Rd] @ .
+wash
+preliminary [cond] @ .
+preliminary [set] @ .
+0b10 .
+b10 .
+bin> 10 .
 bye
