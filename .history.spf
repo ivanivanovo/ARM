@@ -28,7 +28,6 @@ dup
 s" rot" FindVoc.
 s" -rot" FindVoc.
 oreder
-order
 S" ЖерБёнок-Funt" 2dup UPPERCASE-W type cr
 sh wdr
 sh pswd
@@ -114,7 +113,6 @@ fff
 12 .hex
 12 24 lshift .uhex
 12 24 lshift dup .uhex 0x10000000 /mod
-2drop
 12 24 lshift dup .uhex 0x10000000 /mod .uhex .uhex
 12 24 lshift dup .uhex 0x1000000 /mod .uhex .uhex
 10 24 lshift dup .uhex 0x1000000 /mod .uhex .uhex
@@ -193,4 +191,49 @@ preliminary [set] @ .
 0b10 .
 b10 .
 bin> 10 .
+12 REGISTER: R12
+dup @ 
+swap
+1 cell+
+drop
+ cell +
+@
+' @+
+r3
+134686432 cell+
+' 2@
+r6
+WORDLIST
+CONSTANT ASSEMBLER
+2drop
+ASSEMBLER set-current
+previous
+definitions
+order
+execute
+r1
+also assembler
+r1 
+[[
+r0
+@ .
+r0 @ .uhex
+help catch
+2 aa
+20 aa
+count type
+20 bb
+2 bb
+ bb
+langASM
+tollbox
+toolbox
+words
+
+errlo .
+also assembler 
+errrlo .
+err+label .
+300 throw
+errImm!2 throw
 bye

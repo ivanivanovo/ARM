@@ -1,28 +1,15 @@
 #! /usr/bin/spf4
 CASE-INS OFF
-S" toolbox.f" INCLUDED
- S" langASM.f"  INCLUDED
+REQUIRE toolbox  toolbox.f
+REQUIRE langASM langASM.f 
 \ S" ARMv6-Mset.f" INCLUDED
 
-: .cmd ( code --)
-    DUP 0xFF AND 8 ROT
-    8 RSHIFT 8 
-    BIN[ .0R SPACE .0R ]BIN
-    ;
 
 #def as sh arm-none-eabi-as -o tst.o tst.s -g
 #def da sh arm-none-eabi-objdump -d tst.o 
 
-HEX[
-: WIDE_OFFSET_LONG   ( offset - mask )
-    DUP 800000 AND 0= IF \ J1, J2
-        600000 XOR
-    THEN
-    DUP 7FF AND \ i11
-    OVER 1FF800 AND 5 LSHIFT OR \ i10
-    OVER 200000 AND A RSHIFT OR \ J2
-    OVER 400000 AND 9 RSHIFT OR \ J1
-    SWAP 800000 AND 3 LSHIFT OR \ S
-;
-]HEX
 CASE-INS ON
+
+
+: aa dup 8 < if . 8 else -100 throw then ;
+: bb ['] aa catch -100 = if ." меньше" then ;

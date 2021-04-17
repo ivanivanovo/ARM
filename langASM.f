@@ -1,5 +1,16 @@
 \ язык для описания команд ассемблера
 \ 
+REQUIRE toolbox  toolbox.f
+DECIMAL \ десятичная система счисления
+VOCABULARY ASSEMBLER
+ALSO ASSEMBLER DEFINITIONS
+
+300 COUNTER: ErrNo
+ErrNo CONSTANT errRlo
+ErrNo CONSTANT errImm!2
+ErrNo CONSTANT errImm!4
+ErrNo CONSTANT err+Label
+
 \ Condition number
 \    cond                Mnemonic  Meaning                         Condition flags
 BIN> 0000 CONSTANT   ..EQ    \ EQual                           Z == 1
@@ -42,13 +53,24 @@ CREATE pre fields_of_mnemonic ALLOT
  FALSE pre .Set  !
      ;
 
-
-
-
-REQUIRE NewChain chain.f
-NewChain asmChain
-: Assm: ( .mem> --) \ начинает цепочку связанных полей для описания 
-    \ ассемблерной команда .mem  
-    BL PARSE ( adr u)
-    DUP IF asmChain inject ELSE 2DROP THEN
+\ Чтобы на стеке отличить номер регистра от числа
+\ под номер регистра подкладывается специальный признак
+129 CONSTANT itisReg \ признак регистра
+: REGISTER: ( n <name> --) \ слово определяющее регистр
+    CREATE , itisReg , 
+    DOES> 2@ 
     ;
+ 0 REGISTER: R0     1 REGISTER: R1     2 REGISTER: R2      3 REGISTER: R3
+ 4 REGISTER: R4     5 REGISTER: R5     6 REGISTER: R6      7 REGISTER: R7
+ 8 REGISTER: R8     9 REGISTER: R9    10 REGISTER: R10    11 REGISTER: R11
+12 REGISTER: R12   13 REGISTER: R13   14 REGISTER: R14    15 REGISTER: R15
+                   13 REGISTER: SP    14 REGISTER: LR     15 REGISTER: PC
+
+
+: Assm: ( <mem> --) \ начинает цепочку связанных полей для описания 
+    \ ассемблерной команда .mem  
+    ;
+
+
+PREVIOUS DEFINITIONS    
+#def langASM .( loaded) CR
