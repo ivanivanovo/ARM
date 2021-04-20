@@ -173,7 +173,6 @@ t
 chain.f
 NewChain AsmChain
 AsmChain
-32 dump
 as
 da
 BYE
@@ -205,12 +204,9 @@ r3
 r6
 WORDLIST
 CONSTANT ASSEMBLER
-2drop
 ASSEMBLER set-current
 previous
 definitions
-order
-execute
 r1
 also assembler
 r1 
@@ -228,12 +224,59 @@ count type
 langASM
 tollbox
 toolbox
-words
-
 errlo .
 also assembler 
 errrlo .
 err+label .
 300 throw
 errImm!2 throw
+s" abcd" case^
+s" abcd" 2dup case^ type
+s" а-ивфbcd" 2dup case^ type
+s" а-ивфbcd" 2dup uppercase-w type
+order
+' STR-CASE^
+ABCD
+assm: abcd 
+type
+words
+source type
+source type 12345
+source type 12345
+qqq
+assm: bcd 
+''''
+c" ," find
+jhg
+mnemonics
+lll
+S" aa" 
+2drop
+Mnemonics
+@
+dup
+S" aa"  search_Mnemo
+Assm: a1
+a1
+a1 128 dump
+Mnemonics @ .hex
+type
+b1 64 dump
+Assm: b1
+aaaaa
+S" A1" search_Mnemo 
+32 dump
+S" B1" search_Mnemo 
+12 swap
+dup 0=
+drop
+nip
+
+a1
+@ 
+134687684
+134687684 134687679 >body
+' a1
+execute
+body>
 bye
