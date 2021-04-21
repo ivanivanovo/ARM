@@ -6,6 +6,7 @@ VOCABULARY ASSEMBLER
 ALSO ASSEMBLER DEFINITIONS
 
 300 COUNTER: ErrNo
+ErrNo CONSTANT errNoReg
 ErrNo CONSTANT errRlo
 ErrNo CONSTANT errImm!2
 ErrNo CONSTANT errImm!4
@@ -53,6 +54,21 @@ CREATE pre fields_of_mnemonic ALLOT
  FALSE pre .Set  !
      ;
 
+: shwPRE ( --) \ показать предварительные поля
+    ." ------------------------------------" CR
+    ." |cond| S | Rd | Rt | Rn | Rm | imm |" CR
+    ." ------------------------------------" CR
+    pre .cond @ 4 .R 2 SPACES
+    pre .Set  @ 2 .R SPACE   
+    pre .Rd   @ 4 .R SPACE
+    pre .Rt   @ 4 .R SPACE
+    pre .Rn   @ 4 .R SPACE
+    pre .Rm   @ 4 .R SPACE
+    pre .imm  @ 4 .R SPACE
+    CR 
+    ." ------------------------------------" CR
+    ;
+
 \ Регистр представлен на стеке парой чисел:
 \ признак регистра & номер регистра
 129 CONSTANT itisReg \ признак регистра
@@ -68,11 +84,45 @@ CREATE pre fields_of_mnemonic ALLOT
 
 
 
-DEFER coder ( link --) \ кодировщик, переводит ассемблерную строку в машинный код
-
 \ структура мнемоники
-\ fop   - указатель на поле операндов
+\ op>   - указатель на поле операндов
 \ c-str - мнемоника, строка со счетчиком
+
+\ структура операндов
+\ next   - указатель на следующий операнд или энкод
+\ parent - указатель на предыдущий операнд или мнемонику
+\ xt
+
+VARIABLE ASM? \ переменная состояния, 1 кодирование, 0 декодирование 
+1 ASM? ! 
+
+: Operand: \ связать имя операнда с его действием 
+    \ создать структуру операнда
+    ( xt "name" --)  
+    CREATE 0 , 0 , ,
+    \ вставить операнд в цепь определяемой команды ассемблера 
+    ( link -- link') 
+    DOES> 2DUP CELL+ ! DUP ROT !
+    ;
+
+: Reg! ( Rx adr --) \ запомнить номер регистра в структуре
+    ROT itisReg = IF ! ELSE errNoReg THROW THEN
+    ;
+
+: <Reg> ( Rx adr --)     \ кодирование
+        ( ->x -- adr u) \ декодирование
+    ASM? @ IF Reg! ELSE @ S>D <# #S [CHAR] R HOLD #> THEN 
+    ;
+
+:NONAME pre .Rd <Reg> ;  Operand: Rd  : Rd, Rd ;
+:NONAME pre .Rn <Reg> ;  Operand: Rn  : Rn, Rn ;
+:NONAME pre .Rm <Reg> ;  Operand: Rm  : Rm, Rm ;
+:NONAME pre .Rt <Reg> ;  Operand: Rt  : Rt, Rt ;
+
+
+: coder ( link --) \ кодировщик, переводит ассемблерную строку в машинный код
+    DUP @ .HEX CELL + COUNT TYPE CR
+    ;
 
 : Assm: ( "mnemonics" -- link) \ создает или находит структуру 
     \ ассемблерной команды <mnemonics>
@@ -89,19 +139,16 @@ DEFER coder ( link --) \ кодировщик, переводит ассембл
     THEN 
     ;
 
-: cod? ( link -- )
-    DUP @ .HEX CELL + COUNT TYPE CR
-    ;
-' cod? IS coder
 
-PREVIOUS DEFINITIONS    
+\ PREVIOUS DEFINITIONS    
 #def langASM .( loaded) CR
 
+
+Assm: ADCS Rd, Rm             \  Encod: 0100000101mmmddd
 \EOF \ локальные отладочные тесты
-Assm: a1  DROP
-Assm: b1  DROP
-Assm: a2  DROP
-Assm: a2  DROP
-Assm: B1  DROP
+Assm: ADDS Rd, Rn, imm        \  Encod: 0001110iiinnnddd
+Assm: ADDS Rd, imm            \  Encod: 00110dddiiiiiiii
+Assm: ADDS Rd, Rn, Rm         \  Encod: 0001100mmmnnnddd
+Assm: ADD  Rdn, Rm            \  Encod: 01000100dmmmmddd
 
 WORDS
