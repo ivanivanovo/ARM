@@ -234,12 +234,10 @@ s" abcd" case^
 s" abcd" 2dup case^ type
 s" а-ивфbcd" 2dup case^ type
 s" а-ивфbcd" 2dup uppercase-w type
-order
 ' STR-CASE^
 ABCD
 assm: abcd 
 type
-words
 source type
 source type 12345
 source type 12345
@@ -256,22 +254,18 @@ Mnemonics
 @
 dup
 S" aa"  search_Mnemo
-Assm: a1
 a1
 a1 128 dump
 Mnemonics @ .hex
 type
 b1 64 dump
-Assm: b1
 aaaaa
 S" A1" search_Mnemo 
-32 dump
 S" B1" search_Mnemo 
 12 swap
 dup 0=
 drop
 nip
-
 a1
 @ 
 134687684
@@ -279,4 +273,38 @@ a1
 ' a1
 execute
 body>
+c" a1" find
+Assm: a1
+32 dump
+Assm: a2
+Assm: b1
+a1
+' a1 .hex
+' a1 >body .hex
+' a1 >body 32 dump
+a2
+Assm: a2 ;
+32 dump
+>in @ .
+Assm: a5 ;
+Assm: ab5 ;
+Assm: ab6 ;
+Assm: ab7 ;
+Assm: a7 ;
+Assm: a8 ;
+status @ .
+stat @ .
+state @ .
+create abcd state @ .
+order
+bl word  abcd find 
+words
+adsfdfs
+BL WORD a2
+DUP COUNT UPPERCASE-W
+dup count type
+FIND
+a2
+
+a1
 bye
