@@ -1,7 +1,11 @@
 #! /usr/bin/spf4
 CASE-INS OFF
+ \ REQUIRE SEE lib/ext/disasm.f
+ \ REQUIRE INCLUDED_L ~mak/listing2.f
+
 REQUIRE toolbox  toolbox.f
 REQUIRE langASM langASM.f 
+S" list.f" INCLUDED
 \ S" ARMv6-Mset.f" INCLUDED
 
 
@@ -13,3 +17,4 @@ CASE-INS ON
 
 : aa dup 8 < if . 8 else -100 throw then ;
 : bb ['] aa catch -100 = if ." меньше" then ;
+S" tsts.f" INCLUDED
