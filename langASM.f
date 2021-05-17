@@ -120,8 +120,8 @@ CREATE pre fields_of_mnemonic ALLOT
 #def langASM .( loaded) CR
 
 
-Assm: AdcS \  Rd, Rm            \  Encod: 0100000101mmmddd
 \EOF \ локальные отладочные тесты
+Assm: AdcS \  Rd, Rm            \  Encod: 0100000101mmmddd
 Assm: ADDS Rd, Rn, imm        \  Encod: 0001110iiinnnddd
 Assm: ADDS Rd, imm            \  Encod: 00110dddiiiiiiii
 Assm: ADDS Rd, Rn, Rm         \  Encod: 0001100mmmnnnddd

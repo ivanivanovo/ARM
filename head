@@ -5,7 +5,7 @@ CASE-INS OFF
 
 REQUIRE toolbox  toolbox.f
 REQUIRE langASM langASM.f 
-S" list.f" INCLUDED
+\ S" list.f" INCLUDED
 \ S" ARMv6-Mset.f" INCLUDED
 
 
