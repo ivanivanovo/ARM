@@ -27,3 +27,15 @@ LDR     -> tni | tn (i=0)   Encod: 01101iiiiinnnttt                             
         -> ti               Encod: 01001tttiiiiiiii                                     Cycles: 2       Action: Rt := [PC + imm8*4]                             Notes: imm8*4 range 0-1020 (word-aligned)
         -> tnm              Encod: 0101100mmmnnnttt                                     Cycles: 2       Action: Rd := [Rn + Rm]                                 Notes: 
 
+(ldr (en t n m) (en t i) (en (t s i) (t s)) (en (t n i) (t n)))
+(ldr aaaaaaaaaa bbbbbbbb ccc ------- ...... ddd _______ ......)
+
+(ldr (a (en (op t n m)))
+     (a (en (op t i)))
+     (a (en (op t s i) 
+            (op t s))
+     ) 
+     (a (en (op t n i) 
+            (op t n))
+     )
+)
