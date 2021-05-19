@@ -1,6 +1,7 @@
 \ язык для описания команд ассемблера
 \ 
 REQUIRE toolbox  toolbox.f
+REQUIRE CASE   lib/ext/case.f
 DECIMAL \ десятичная система счисления
 VOCABULARY ASSEMBLER
 ALSO ASSEMBLER DEFINITIONS
@@ -83,36 +84,93 @@ CREATE pre fields_of_mnemonic ALLOT
                    13 REGISTER: SP    14 REGISTER: LR     15 REGISTER: PC
 
 
+VARIABLE ASM? \ переменная состояния, TRUE кодирование, FALSE декодирование 
+ASM? ON 
+: ASM> POSTPONE ASM? POSTPONE @  POSTPONE IF ; IMMEDIATE 
+: DIS> POSTPONE EXIT POSTPONE THEN ; IMMEDIATE
+
+
+: Reg! ( Rx adr --) \ запомнить номер регистра в структуре pre
+    ROT itisReg = IF ! ELSE errNoReg THROW THEN
+    ;
+
+: Reg# ( #Reg -- c-adr u) \ дать строку с цифровым именем регистра
+    S>D DEC[ <# #S [CHAR] R HOLD #> ]DEC 
+    ;
+
+: RegName ( #Reg -- c-adr u) \ дать строку с именем регистра
+    DUP 13 = IF DROP S" SP" ELSE
+    DUP 14 = IF DROP S" LR" ELSE
+    DUP 15 = IF DROP S" PC" ELSE
+    Reg# \ неименованый регистр будет с номером
+    THEN THEN THEN
+    ;
+    
+: <Reg> 
+    ASM> ( Rx adr -- ) Reg! 
+    DIS> ( adr -- c-adr u ) @ RegName
+    ;
+
+: <Imm> \ простое числовое значение
+    ASM> ( x adr --) !
+    DIS> ( adr -- x) @
+    ; 
+
+:NONAME pre .Rd  <Reg> ;  CONSTANT Rd  : Rd, Rd ;
+:NONAME pre .Rn  <Reg> ;  CONSTANT Rn  : Rn, Rn ;
+:NONAME pre .Rm  <Reg> ;  CONSTANT Rm  : Rm, Rm ;
+:NONAME pre .Rt  <Reg> ;  CONSTANT Rt  : Rt, Rt ;
+:NONAME pre .imm <Imm> ;  CONSTANT imm
+
+VARIABLE encodes \ кончик цепочки енкодов
+: asmcoder ( adr-alt -- ) 
+    
+    ;
+: discoder ( )
+    ;
 
 \ структура мнемоники
-\ next   - указатель на цепь операндов для ассемблирования
-\ prev   - 0
-\ c-str  - мнемоника, строка со счетчиком
+\ alt   - указатель на вариант операндов/енкода для ассемблирования
+\ c-str - мнемоника, строка со счетчиком
 
-: ascoder  ;
-
-: mnemo. ( c-str --) \ выдать мнемонику команды
-    COUNT TYPE
-    ;
-: decoder ( opN .. op2 op1 c-str --) 
-    mnemo.
-    @ DROP \ переход к следующему     
-    ;
-
-: Assm: ( "mnemonics" -- aop> ) \ создает или находит структуру 
+VARIABLE depthM \ засечка глубины стека при определении мнемоники
+: Assm: ( "mnemonics" -- ->mnemo ) \ создает или находит структуру 
     \ ассемблерной команды <mnemonics>
     \ возвращает ссылку на неё
+    \ запомним глубину стека
+    DEPTH depthM ! \ для вычисления количества операндов
     >IN @  BL PARSE 2>R \ R: adr u - мнемоника во входном буфере
     2R@ UPPERCASE-W \ ВСЕГДА В ВЕРХНЕМ РЕГИСТРЕ
     2R@ GET-CURRENT SEARCH-WORDLIST  
-    IF  >BODY  
+    IF  \  есть такое, 
         NIP  2R> 2DROP
+        >BODY \ выдать адрес структуры мнемоники
     ELSE \ нету, создать
         >IN ! CREATE    
-        HERE 0 , 0 , 2R> str!
+        HERE 0 , 2R> str!
         ALIGN 
-        DOES> ascoder
+        DOES> asmcoder
     THEN 
+    ;
+
+: +net ( adr net -- adr') \ включить adr в цепочку net
+    \ adr' указатель на следующее звено
+    DUP @ -ROT ! 
+    ;
+
+: structEncode ( j*x u1 adr u2 -- i*x) \ создать структуру кодировщика команды
+    \ по шаблону adr u2
+    TYPE SPACE 0 DO . LOOP CR
+    ;
+    
+: Encod: ( j*x "encode" -- i*x ) \ строит структуру кодирования 
+\ потребляет операнды и мнемонику со стека
+    HERE encodes , \ включиться в цепочку
+    DEPTH depthM @ - \ количество операндов+мнемоника, >1
+    ?DUP
+    IF BL PARSE structEncode
+    ELSE ABORT" Ошибка описания мнемоники"
+    THEN
     ;
 
 
@@ -120,11 +178,3 @@ CREATE pre fields_of_mnemonic ALLOT
 #def langASM .( loaded) CR
 
 
-\EOF \ локальные отладочные тесты
-Assm: AdcS \  Rd, Rm            \  Encod: 0100000101mmmddd
-Assm: ADDS Rd, Rn, imm        \  Encod: 0001110iiinnnddd
-Assm: ADDS Rd, imm            \  Encod: 00110dddiiiiiiii
-Assm: ADDS Rd, Rn, Rm         \  Encod: 0001100mmmnnnddd
-Assm: ADD  Rdn, Rm            \  Encod: 01000100dmmmmddd
-
-WORDS

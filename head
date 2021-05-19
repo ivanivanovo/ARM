@@ -17,4 +17,4 @@ CASE-INS ON
 
 : aa dup 8 < if . 8 else -100 throw then ;
 : bb ['] aa catch -100 = if ." меньше" then ;
-S" tsts.f" INCLUDED
+ S" tsts.f" INCLUDED
