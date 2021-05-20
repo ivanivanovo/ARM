@@ -3,6 +3,7 @@ CASE-INS OFF
  \ REQUIRE SEE lib/ext/disasm.f
  \ REQUIRE INCLUDED_L ~mak/listing2.f
 
+REQUIRE 2CONSTANT lib/include/double.f
 REQUIRE toolbox  toolbox.f
 REQUIRE langASM langASM.f 
 \ S" list.f" INCLUDED

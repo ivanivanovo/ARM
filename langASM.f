@@ -2,6 +2,7 @@
 \ 
 REQUIRE toolbox  toolbox.f
 REQUIRE CASE   lib/ext/case.f
+REQUIRE 2CONSTANT lib/include/double.f
 DECIMAL \ десятичная система счисления
 VOCABULARY ASSEMBLER
 ALSO ASSEMBLER DEFINITIONS
@@ -72,6 +73,7 @@ CREATE pre fields_of_mnemonic ALLOT
 
 \ Регистр представлен на стеке парой чисел:
 \ признак регистра & номер регистра
+\ в стековой нотации эта пара [r,x]
 129 CONSTANT itisReg \ признак регистра
 : REGISTER: ( n <name> --) \ слово определяющее регистр
     CREATE , itisReg , 
@@ -90,7 +92,7 @@ ASM? ON
 : DIS> POSTPONE EXIT POSTPONE THEN ; IMMEDIATE
 
 
-: Reg! ( Rx adr --) \ запомнить номер регистра в структуре pre
+: Reg! ( [r,x] adr --) \ запомнить номер регистра в структуре pre
     ROT itisReg = IF ! ELSE errNoReg THROW THEN
     ;
 
@@ -106,8 +108,8 @@ ASM? ON
     THEN THEN THEN
     ;
     
-: <Reg> 
-    ASM> ( Rx adr -- ) Reg! 
+: <Reg>  \ обработчик регистров
+    ASM> ( [r,x] adr -- ) Reg! 
     DIS> ( adr -- c-adr u ) @ RegName
     ;
 
@@ -116,13 +118,14 @@ ASM? ON
     DIS> ( adr -- x) @
     ; 
 
-:NONAME pre .Rd  <Reg> ;  CONSTANT Rd  : Rd, Rd ;
-:NONAME pre .Rn  <Reg> ;  CONSTANT Rn  : Rn, Rn ;
-:NONAME pre .Rm  <Reg> ;  CONSTANT Rm  : Rm, Rm ;
-:NONAME pre .Rt  <Reg> ;  CONSTANT Rt  : Rt, Rt ;
-:NONAME pre .imm <Imm> ;  CONSTANT imm
+\ ----обработчик------ |--тэг--|--операнд-----|-синоним|
+:NONAME pre .Rd  <Reg> ; CHAR d 2CONSTANT Rd  : Rd, Rd ;
+:NONAME pre .Rn  <Reg> ; CHAR n 2CONSTANT Rn  : Rn, Rn ;
+:NONAME pre .Rm  <Reg> ; CHAR m 2CONSTANT Rm  : Rm, Rm ;
+:NONAME pre .Rt  <Reg> ; CHAR t 2CONSTANT Rt  : Rt, Rt ;
+:NONAME pre .imm <Imm> ; CHAR i 2CONSTANT imm
 
-VARIABLE encodes \ кончик цепочки енкодов
+VARIABLE encodes 0 encodes ! \ кончик цепочки енкодов
 : asmcoder ( adr-alt -- ) 
     
     ;
@@ -158,14 +161,40 @@ VARIABLE depthM \ засечка глубины стека при определ
     DUP @ -ROT ! 
     ;
 
+: tagMask ( adr u tag -- маска) \ из стоки adr u вида "0100000101mmmddd"
+    \ сделать маску по тэгу(символу)
+    \ маска - число у которого биты =1 
+    \ в позициях, где тэг/символ встречается в строке
+    \      0100000101mmmddd 
+    \ d -> 0000000000000111
+    \ m -> 0000000000111000
+    \ 0 -> 1011111010000000
+    \ 1 -> 0100000101000000
+    0 2SWAP
+    OVER + SWAP
+    DO ( tag mask) 2* OVER I C@ = IF 1+ THEN
+    LOOP NIP
+    ;
+
+: cliche&mask ( adr u -- маска клише) \ из стоки adr u вида "0100000101mmmddd"
+    \ сделать клише и маску команды
+    \ по маске из машинного слова выделяется опознавательный код команды,
+    \ а клише служит для сравнения "код=клише"
+    2DUP 
+    [CHAR] 1 tagMask >R \ mask1=клише
+    [CHAR] 0 tagMask R@ ( mask0 mask1)
+    OR \ маска01
+    R> 
+    ;
+
 : structEncode ( j*x u1 adr u2 -- i*x) \ создать структуру кодировщика команды
     \ по шаблону adr u2
-    TYPE SPACE 0 DO . LOOP CR
+    str! SPACE 0 DO . LOOP CR
     ;
     
 : Encod: ( j*x "encode" -- i*x ) \ строит структуру кодирования 
 \ потребляет операнды и мнемонику со стека
-    HERE encodes , \ включиться в цепочку
+    HERE encodes +net , \ включиться в цепочку
     DEPTH depthM @ - \ количество операндов+мнемоника, >1
     ?DUP
     IF BL PARSE structEncode
