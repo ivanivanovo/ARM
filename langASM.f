@@ -118,6 +118,11 @@ ASM? ON
     DIS> ( adr -- x) @
     ; 
 
+: inStr? ( x adr u -- f) \ x есть в строке adr u?
+    ROT FALSE 2SWAP OVER + SWAP
+    DO ( x f ) OVER I C@ = IF DROP TRUE LEAVE THEN
+    LOOP NIP
+    ;
 \ ----обработчик------ |--тэг--|--операнд-----|-синоним|
 :NONAME pre .Rd  <Reg> ; CHAR d 2CONSTANT Rd  : Rd, Rd ;
 :NONAME pre .Rn  <Reg> ; CHAR n 2CONSTANT Rn  : Rn, Rn ;
@@ -187,19 +192,44 @@ VARIABLE depthM \ засечка глубины стека при определ
     R> 
     ;
 
-: structEncode ( j*x u1 adr u2 -- i*x) \ создать структуру кодировщика команды
+\ структура кодировщика команды
+\ link     - поле связи
+\ cliche   - клише команды
+\ mask     - маска команды
+\   tag    - тэг операнда
+\   mask   - маска операнда
+\   xt     - токен обработчика операнда
+\   ...    - другие операнды
+\ 0        - тэг мнемоники или конец операндов
+\ adrMnemo - адрес структуры мнемоники
+
+: shwEncode ( adr --) \ показать структуру кодировщика команды
+    DUP       ." link=  " @ .HEX CR
+    CELL+ DUP ." clishe=" @ 8 CELLS BIN[ .0R ]BIN CR
+    CELL+ DUP ." mask=  " @ 8 CELLS BIN[ .0R ]BIN CR
+    BEGIN CELL+ DUP @ WHILE
+        DUP   ." tag=   " @ EMIT CR
+        CELL+ DUP ." mask=  " @ 8 CELLS BIN[ .0R ]BIN CR
+        CELL+ DUP ." xt=    " @ .HEX CR
+    REPEAT
+    CELL+ @ CELL+ ." mnemo= " COUNT TYPE CR
+    ;
+
+: structEncode ( mnem n*[xt,teg] adr u2 -- ) \ создать структуру кодировщика команды
     \ по шаблону adr u2
-    str! SPACE 0 DO . LOOP CR
+    2>R
+    2R@ cliche&mask , ,
+    BEGIN DUP 2R@ inStr? \ потребление операндов
+    WHILE DUP , 2R@ ROT tagMask , , REPEAT
+    2R> 2DROP
+    0 , , 
     ;
     
-: Encod: ( j*x "encode" -- i*x ) \ строит структуру кодирования 
+: Encod: ( mnem n*[xt,teg] "encode" --  ) \ строит структуру кодирования 
 \ потребляет операнды и мнемонику со стека
     HERE encodes +net , \ включиться в цепочку
-    DEPTH depthM @ - \ количество операндов+мнемоника, >1
-    ?DUP
-    IF BL PARSE structEncode
-    ELSE ABORT" Ошибка описания мнемоники"
-    THEN
+    BL PARSE structEncode
+
     ;
 
 
