@@ -113,5 +113,4 @@ Assm: UXTH Rd, Rm               Encod: 1011001010mmmddd                         
 Assm: WFE                       Encod: 1011111100100000                                     Cycles: 2       Action: Wait for event, IRQ, FIQ, Imprecise abort, or Debug entry request   Notes: 
 Assm: WFI                       Encod: 1011111100110000                                     Cycles: 2       Action: Wait for IRQ, FIQ, Imprecise abort, or Debug entry request          Notes: 
 Assm: YIELD                     Encod: 1011111100010000                                     Cycles: 1       Action: Yield control to alternative thread             Notes: 
-                                                                                                                                                                                                                                                                            
-ADR <Rd>,<label>                                                                
+

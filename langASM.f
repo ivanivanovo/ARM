@@ -141,12 +141,9 @@ VARIABLE encodes 0 encodes ! \ кончик цепочки енкодов
 \ alt   - указатель на вариант операндов/енкода для ассемблирования
 \ c-str - мнемоника, строка со счетчиком
 
-VARIABLE depthM \ засечка глубины стека при определении мнемоники
 : Assm: ( "mnemonics" -- ->mnemo ) \ создает или находит структуру 
     \ ассемблерной команды <mnemonics>
     \ возвращает ссылку на неё
-    \ запомним глубину стека
-    DEPTH depthM ! \ для вычисления количества операндов
     >IN @  BL PARSE 2>R \ R: adr u - мнемоника во входном буфере
     2R@ UPPERCASE-W \ ВСЕГДА В ВЕРХНЕМ РЕГИСТРЕ
     2R@ GET-CURRENT SEARCH-WORDLIST  
@@ -193,7 +190,8 @@ VARIABLE depthM \ засечка глубины стека при определ
     ;
 
 \ структура кодировщика команды
-\ link     - поле связи
+\ link     - поле связи цепи всех кодировщиков
+\ alt      - поле связи цепи альтернатив
 \ cliche   - клише команды
 \ mask     - маска команды
 \   tag    - тэг операнда
@@ -203,35 +201,57 @@ VARIABLE depthM \ засечка глубины стека при определ
 \ 0        - тэг мнемоники или конец операндов
 \ adrMnemo - адрес структуры мнемоники
 
-: shwEncode ( adr --) \ показать структуру кодировщика команды
-    DUP       ." link=  " @ .HEX CR
-    CELL+ DUP ." clishe=" @ 8 CELLS BIN[ .0R ]BIN CR
-    CELL+ DUP ." mask=  " @ 8 CELLS BIN[ .0R ]BIN CR
-    BEGIN CELL+ DUP @ WHILE
-        DUP   ." tag=   " @ EMIT CR
-        CELL+ DUP ." mask=  " @ 8 CELLS BIN[ .0R ]BIN CR
-        CELL+ DUP ." xt=    " @ .HEX CR
-    REPEAT
-    CELL+ @ CELL+ ." mnemo= " COUNT TYPE CR
-    ;
-
-: structEncode ( mnem n*[xt,teg] adr u2 -- ) \ создать структуру кодировщика команды
+: structEncode ( mnem n*[xt,teg] adr u2 -- mnem) \ создать структуру кодировщика команды
     \ по шаблону adr u2
     2>R
     2R@ cliche&mask , ,
     BEGIN DUP 2R@ inStr? \ потребление операндов
     WHILE DUP , 2R@ ROT tagMask , , REPEAT
     2R> 2DROP
-    0 , , 
+    0 , DUP , 
     ;
     
 : Encod: ( mnem n*[xt,teg] "encode" --  ) \ строит структуру кодирования 
 \ потребляет операнды и мнемонику со стека
-    HERE encodes +net , \ включиться в цепочку
+    HERE encodes +net , \ включиться в цепочку кодировщиков
+    0 , \ указатель на альтернативный кодировщик
     BL PARSE structEncode
-
+    BEGIN DUP @ WHILE @ CELL+ REPEAT encodes @ SWAP !
     ;
 
+\ слова лишние, но помогающие
+#def tab> R@ SPACES
+: shwEncode ( adr tab --) \ показать структуру кодировщика команды
+    \ с отступом tab
+    >R 
+    tab> ." ======================================="         CR 
+    tab> DUP       ." link=  " @ .HEX                        CR 
+    tab> CELL+ DUP ." alt=   " @ .HEX                        CR 
+    tab> ." ---------------------------------------"         CR 
+    tab> CELL+ DUP ." clishe=" @ 8 CELLS BIN[ U.0R ]BIN      CR 
+    tab> CELL+ DUP ." mask=  " @ 8 CELLS BIN[ U.0R ]BIN      CR 
+         BEGIN CELL+ DUP @ WHILE
+    tab>     DUP   ." tag=   " @ EMIT                        CR 
+    tab>     CELL+ DUP ." mask=  " @ 8 CELLS BIN[ .0R ]BIN   CR 
+    tab>     CELL+ DUP ." xt=    " @ .HEX                    CR 
+         REPEAT
+    tab> CELL+ @ CELL+ ." mnemo= " COUNT TYPE                CR 
+    R> DROP
+    ;
+
+: shwMnemo ( xt --) \ показать структуру мнемоники
+    >BODY
+    DUP @ ." alt=   " .HEX CR
+    CELL+ ." mnemo= " COUNT TYPE CR
+    ;
+
+: shwCmd ( xt --) \ показать команду полностью
+    DUP shwMnemo
+    >BODY 0 >R
+    BEGIN DUP @ 
+    WHILE @ DUP R> 4 + DUP >R shwEncode CELL+ 
+    REPEAT DROP R> DROP
+    ;
 
 \ PREVIOUS DEFINITIONS    
 #def langASM .( loaded) CR
