@@ -8,11 +8,13 @@ VOCABULARY ASSEMBLER
 ALSO ASSEMBLER DEFINITIONS
 
 300 COUNTER: ErrNo
-ErrNo CONSTANT errNoReg
-ErrNo CONSTANT errRlo
-ErrNo CONSTANT errImm!2
-ErrNo CONSTANT errImm!4
-ErrNo CONSTANT err+Label
+ErrNo CONSTANT errNoReg     \ Не регистр
+ErrNo CONSTANT errRlo       \ Не младший регистр
+ErrNo CONSTANT errRdn       \ Разные регистры
+ErrNo CONSTANT errBigOp     \ Слишком большое число в операнде 
+ErrNo CONSTANT errImm!2     \ нечетное число 
+ErrNo CONSTANT errImm!4     \ невыровненное число
+ErrNo CONSTANT err+Label    \ метка должна быть только вперед
 
 \ Condition number
 \    cond                Mnemonic  Meaning                         Condition flags
@@ -56,21 +58,6 @@ CREATE pre fields_of_mnemonic ALLOT
  FALSE pre .Set  !
      ;
 
-: shwPRE ( --) \ показать предварительные поля
-    ." ------------------------------------" CR
-    ." |cond| S | Rd | Rt | Rn | Rm | imm |" CR
-    ." ------------------------------------" CR
-    pre .cond @ 4 .R 2 SPACES
-    pre .Set  @ 2 .R SPACE   
-    pre .Rd   @ 4 .R SPACE
-    pre .Rt   @ 4 .R SPACE
-    pre .Rn   @ 4 .R SPACE
-    pre .Rm   @ 4 .R SPACE
-    pre .imm  @ 4 .R SPACE
-    CR 
-    ." ------------------------------------" CR
-    ;
-
 \ Регистр представлен на стеке парой чисел:
 \ признак регистра & номер регистра
 \ в стековой нотации эта пара [r,x]
@@ -88,11 +75,32 @@ CREATE pre fields_of_mnemonic ALLOT
 
 VARIABLE ASM? \ переменная состояния, TRUE кодирование, FALSE декодирование 
 ASM? ON 
-: ASM> POSTPONE ASM? POSTPONE @  POSTPONE IF ; IMMEDIATE 
-: DIS> POSTPONE EXIT POSTPONE THEN ; IMMEDIATE
+\ : ASM> POSTPONE ASM? POSTPONE @  POSTPONE IF ; IMMEDIATE 
+\ : DIS> POSTPONE EXIT POSTPONE THEN ; IMMEDIATE
+#def ASM> ASM? @ IF
+#def DIS> EXIT THEN
+#def R<<  R> 1 LSHIFT >R
 
+: disperse ( u mask -- u') \ рассыпать биты числа u по маске
+    0 -ROT 1 >R
+    BEGIN ( _u _mask) OVER \ пока_u>0
+    WHILE DUP \ пока _mask>0 
+        WHILE DUP 1 AND IF -ROT TUCK 1 AND IF R@ + THEN SWAP 1 RSHIFT  ROT THEN 
+              1 RSHIFT  R<<  
+    REPEAT
+        errBigOp THROW \ u слишком большое, не помещается в маску
+    THEN  2DROP R> DROP
+    ;
 
-: Reg! ( [r,x] adr --) \ запомнить номер регистра в структуре pre
+: condense ( u' mask -- u) \ собрать число u из u' по битовой маске
+    0 -ROT 1 >R
+    BEGIN DUP \ пока маска>0
+    WHILE DUP 1 AND IF -ROT TUCK 1 AND IF R@ + THEN SWAP R<< ROT THEN
+          1 RSHIFT SWAP 1 RSHIFT SWAP  
+    REPEAT 2DROP R> DROP
+    ;
+
+: Reg! ( [r,x] encode --) \ запомнить номер регистра в структуре pre
     ROT itisReg = IF ! ELSE errNoReg THROW THEN
     ;
 
@@ -109,8 +117,8 @@ ASM? ON
     ;
     
 : <Reg>  \ обработчик регистров
-    ASM> ( [r,x] adr -- ) Reg! 
-    DIS> ( adr -- c-adr u ) @ RegName
+    ASM> ( [r,x] encode -- ) Reg! 
+    DIS> ( encode -- c-adr u ) @ RegName
     ;
 
 : <Imm> \ простое числовое значение
@@ -129,10 +137,18 @@ ASM? ON
 :NONAME pre .Rm  <Reg> ; CHAR m 2CONSTANT Rm  : Rm, Rm ;
 :NONAME pre .Rt  <Reg> ; CHAR t 2CONSTANT Rt  : Rt, Rt ;
 :NONAME pre .imm <Imm> ; CHAR i 2CONSTANT imm
+:NONAME ( {[r,x]} [r,x] --) 
+    2>R OVER itisReg =
+    IF \ два регистра
+        2R@ D= 0= errRdn AND THROW \ проверка убивает дубликат
+    THEN \ один регистр
+    2R> pre .Rd  <Reg> ; CHAR d 2CONSTANT Rdn  : Rdn, Rdn ;
 
 VARIABLE encodes 0 encodes ! \ кончик цепочки енкодов
 : asmcoder ( adr-alt -- ) 
-    
+    \ BEGIN @ \ перебор альтернатив 
+    \ WHILE 
+    \ REPEAT
     ;
 : discoder ( )
     ;
@@ -189,17 +205,22 @@ VARIABLE encodes 0 encodes ! \ кончик цепочки енкодов
     R> 
     ;
 
-\ структура кодировщика команды
-\ link     - поле связи цепи всех кодировщиков
-\ alt      - поле связи цепи альтернатив
-\ cliche   - клише команды
-\ mask     - маска команды
-\   tag    - тэг операнда
-\   mask   - маска операнда
-\   xt     - токен обработчика операнда
-\   ...    - другие операнды
-\ 0        - тэг мнемоники или конец операндов
-\ adrMnemo - адрес структуры мнемоники
+0 \ структура операнда
+CELL -- .tag
+CELL -- .maskOp
+CELL -- .xtOp
+CONSTANT structOp
+
+0 \ структура кодировщика команды
+CELL -- .link     \  поле связи цепи всех кодировщиков
+CELL -- .alt      \  поле связи цепи альтернатив
+CELL -- .cliche   \  клише команды
+CELL -- .mask     \  маска команды
+structOp -- .ops  \  операнд
+\  ...            \  другие операнды
+\ CELL - 0        \  тэг мнемоники или конец операндов
+\ CELL - adrMnemo \  адрес структуры мнемоники
+DROP
 
 : structEncode ( mnem n*[xt,teg] adr u2 -- mnem) \ создать структуру кодировщика команды
     \ по шаблону adr u2
@@ -219,23 +240,51 @@ VARIABLE encodes 0 encodes ! \ кончик цепочки енкодов
     BEGIN DUP @ WHILE @ CELL+ REPEAT encodes @ SWAP !
     ;
 
+
+
+
+
+
+
+
+\ ============================================================================
 \ слова лишние, но помогающие
+: shwPRE ( --) \ показать предварительные поля
+    ." ------------------------------------" CR
+    ." |cond| S | Rd | Rt | Rn | Rm | imm |" CR
+    ." ------------------------------------" CR
+    pre .cond @ 4 .R 2 SPACES
+    pre .Set  @ 2 .R SPACE   
+    pre .Rd   @ 4 .R SPACE
+    pre .Rt   @ 4 .R SPACE
+    pre .Rn   @ 4 .R SPACE
+    pre .Rm   @ 4 .R SPACE
+    pre .imm  @ 4 .R SPACE
+    CR 
+    ." ------------------------------------" CR
+    ;
+
 #def tab> R@ SPACES
+: 32bit. ( u -- ) \ печатать 32-битное число в бинаронм виде
+    8 CELLS BIN[ U.0R ]BIN 
+    ;
 : shwEncode ( adr tab --) \ показать структуру кодировщика команды
     \ с отступом tab
     >R 
-    tab> ." ======================================="         CR 
-    tab> DUP       ." link=  " @ .HEX                        CR 
-    tab> CELL+ DUP ." alt=   " @ .HEX                        CR 
-    tab> ." ---------------------------------------"         CR 
-    tab> CELL+ DUP ." clishe=" @ 8 CELLS BIN[ U.0R ]BIN      CR 
-    tab> CELL+ DUP ." mask=  " @ 8 CELLS BIN[ U.0R ]BIN      CR 
-         BEGIN CELL+ DUP @ WHILE
-    tab>     DUP   ." tag=   " @ EMIT                        CR 
-    tab>     CELL+ DUP ." mask=  " @ 8 CELLS BIN[ .0R ]BIN   CR 
-    tab>     CELL+ DUP ." xt=    " @ .HEX                    CR 
+    tab> ." =======================================" CR 
+    tab> DUP       ." link=  " @ .HEX                CR 
+    tab> DUP .alt  ." alt=   " @ .HEX                CR 
+    tab> ." ---------------------------------------" CR 
+    tab> DUP .cliche ." clishe=" @ 32bit.            CR 
+    tab> DUP .mask   ." mask=  " @ 32bit.            CR 
+         .ops
+         BEGIN DUP  @ WHILE
+    tab>     DUP   ." tag=   " @ EMIT                CR 
+    tab>     DUP .maskOp ." mask=  " @ 32bit.        CR 
+    tab>     DUP .xtOp   ." xt=    " @ .HEX          CR 
+             structOp +
          REPEAT
-    tab> CELL+ @ CELL+ ." mnemo= " COUNT TYPE                CR 
+    tab> CELL+ @ CELL+ ." mnemo= " COUNT TYPE        CR 
     R> DROP
     ;
 
