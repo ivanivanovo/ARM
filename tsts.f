@@ -13,6 +13,9 @@ Assm: ADD  Rdn, Rm             Encod: 01000100dmmmmddd
 bin[ 101 10111000 disperse . ]bin CR CR
 bin[ 101 10111000 TUCK disperse SWAP CONDENse . ]bin CR
 
+asm? on SP bin> 10111000 <reg> enc @ .bin CR
+asm? off bin> 10111000 <reg> type CR
+
 \EOF \ локальные отладочные тесты
 
 \ WORDS

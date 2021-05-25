@@ -1,11 +1,15 @@
 \ язык для описания команд ассемблера
 \ 
 REQUIRE toolbox  toolbox.f
-REQUIRE CASE   lib/ext/case.f
 REQUIRE 2CONSTANT lib/include/double.f
 DECIMAL \ десятичная система счисления
 VOCABULARY ASSEMBLER
 ALSO ASSEMBLER DEFINITIONS
+
+VARIABLE ASM? \ переменная состояния, TRUE кодирование, FALSE декодирование 
+VARIABLE operator 0 operator ! \ текущий оператор (команда)
+VARIABLE enc \ текущий код команды
+VARIABLE encodes 0 encodes ! \ кончик цепочки енкодов
 
 300 COUNTER: ErrNo
 ErrNo CONSTANT errNoReg     \ Не регистр
@@ -36,27 +40,6 @@ BIN> 1100 CONSTANT   ..GT    \ signed Greater Than             Z == 0 and N == V
 BIN> 1101 CONSTANT   ..LE    \ signed Less than or Equal       Z == 1 or N != V
 BIN> 1110 CONSTANT   ..AL    \ ALways (unconditional) Any
 
-0
-CELL -- .Rd   \ destinantion register number
-CELL -- .Rn   \ base register number, first operand register number
-CELL -- .Rm   \ midle register number, second operand number
-CELL -- .Rt   \ target register number
-CELL -- .imm  \ immediate value
-CELL -- .cond \ conditions of passage
-CELL -- .Set  \ seting flags
-CONSTANT fields_of_mnemonic
-
-CREATE pre fields_of_mnemonic ALLOT 
-
-: wash ( --) \ смывка предварительных полей
-    -1 pre .Rd   !
-    -1 pre .Rn   !
-    -1 pre .Rm   !
-    -1 pre .Rt   !
-     0 pre .imm  !
-  ..AL pre .cond !
- FALSE pre .Set  !
-     ;
 
 \ Регистр представлен на стеке парой чисел:
 \ признак регистра & номер регистра
@@ -73,13 +56,17 @@ CREATE pre fields_of_mnemonic ALLOT
                    13 REGISTER: SP    14 REGISTER: LR     15 REGISTER: PC
 
 
-VARIABLE ASM? \ переменная состояния, TRUE кодирование, FALSE декодирование 
+
 ASM? ON 
 \ : ASM> POSTPONE ASM? POSTPONE @  POSTPONE IF ; IMMEDIATE 
 \ : DIS> POSTPONE EXIT POSTPONE THEN ; IMMEDIATE
+
 #def ASM> ASM? @ IF
 #def DIS> EXIT THEN
 #def R<<  R> 1 LSHIFT >R
+: 2RSHIFT ( x1 x2 u -- x1>>u x2>>u) \ сдвинуть вправо пару чисел
+    DUP >R RSHIFT SWAP R> RSHIFT SWAP 
+    ;
 
 : disperse ( u mask -- u') \ рассыпать биты числа u по маске
     0 -ROT 1 >R
@@ -96,12 +83,20 @@ ASM? ON
     0 -ROT 1 >R
     BEGIN DUP \ пока маска>0
     WHILE DUP 1 AND IF -ROT TUCK 1 AND IF R@ + THEN SWAP R<< ROT THEN
-          1 RSHIFT SWAP 1 RSHIFT SWAP  
+          1 2RSHIFT   
     REPEAT 2DROP R> DROP
     ;
 
-: Reg! ( [r,x] encode --) \ запомнить номер регистра в структуре pre
-    ROT itisReg = IF ! ELSE errNoReg THROW THEN
+
+: >enc ( x mask --) \ вложить x в текущий код команды
+    disperse enc @ OR enc !
+    ;  
+: enc> ( mask -- x) \ вытащить число из текущей команды
+    enc @ SWAP condense
+    ;
+
+: Reg! ( [r,x] mask --) \ запомнить номер регистра в текущей команде
+    ROT itisReg = IF >enc ELSE errNoReg THROW THEN
     ;
 
 : Reg# ( #Reg -- c-adr u) \ дать строку с цифровым именем регистра
@@ -117,13 +112,13 @@ ASM? ON
     ;
     
 : <Reg>  \ обработчик регистров
-    ASM> ( [r,x] encode -- ) Reg! 
-    DIS> ( encode -- c-adr u ) @ RegName
+    ASM> ( [r,x] mask -- ) Reg! 
+    DIS> ( mask -- c-adr u ) enc> RegName
     ;
 
 : <Imm> \ простое числовое значение
-    ASM> ( x adr --) !
-    DIS> ( adr -- x) @
+    ASM> ( x mask --) >enc
+    DIS> ( mask -- x) enc>
     ; 
 
 : inStr? ( x adr u -- f) \ x есть в строке adr u?
@@ -131,25 +126,48 @@ ASM? ON
     DO ( x f ) OVER I C@ = IF DROP TRUE LEAVE THEN
     LOOP NIP
     ;
-\ ----обработчик------ |--тэг--|--операнд-----|-синоним|
-:NONAME pre .Rd  <Reg> ; CHAR d 2CONSTANT Rd  : Rd, Rd ;
-:NONAME pre .Rn  <Reg> ; CHAR n 2CONSTANT Rn  : Rn, Rn ;
-:NONAME pre .Rm  <Reg> ; CHAR m 2CONSTANT Rm  : Rm, Rm ;
-:NONAME pre .Rt  <Reg> ; CHAR t 2CONSTANT Rt  : Rt, Rt ;
-:NONAME pre .imm <Imm> ; CHAR i 2CONSTANT imm
+
+\ обработчик|-тэг-|--операнд-----|-синоним|
+' <Reg>     CHAR d 2CONSTANT Rd  : Rd, Rd ;
+' <Reg>     CHAR n 2CONSTANT Rn  : Rn, Rn ;
+' <Reg>     CHAR m 2CONSTANT Rm  : Rm, Rm ;
+' <Reg>     CHAR t 2CONSTANT Rt  : Rt, Rt ;
+' <Imm>     CHAR i 2CONSTANT imm
 :NONAME ( {[r,x]} [r,x] --) 
     2>R OVER itisReg =
     IF \ два регистра
         2R@ D= 0= errRdn AND THROW \ проверка убивает дубликат
     THEN \ один регистр
-    2R> pre .Rd  <Reg> ; CHAR d 2CONSTANT Rdn  : Rdn, Rdn ;
+    2R> <Reg> ; CHAR d 2CONSTANT Rdn  : Rdn, Rdn ;
 
-VARIABLE encodes 0 encodes ! \ кончик цепочки енкодов
-: asmcoder ( adr-alt -- ) 
-    \ BEGIN @ \ перебор альтернатив 
-    \ WHILE 
-    \ REPEAT
+
+0 \ структура операнда
+CELL -- .tag
+CELL -- .maskOp
+CELL -- .xtOp
+CONSTANT structOp
+
+0 \ структура кодировщика команды
+CELL -- .link     \  поле связи цепи всех кодировщиков
+CELL -- .alt      \  поле связи цепи альтернатив
+CELL -- .cliche   \  клише команды
+CELL -- .mask     \  маска команды
+structOp -- .ops  \  операнд
+\  ...            \  другие операнды
+\ CELL - 0        \  тэг мнемоники или конец операндов
+\ CELL - adrMnemo \  адрес структуры мнемоники
+DROP
+: sacker ( j*x adr-alt --) \ упаковать операнды в код
+    
     ;
+
+: asmcoder ( j*x adr-alt -- i*x ) 
+    \ на стеке лежат операнды предыдущего оператора (команды)
+    >R operator @ \ замена оператора
+    ?DUP IF @ sacker THEN
+    R> operator ! \ будет ждать своих операторов
+    ;
+
 : discoder ( )
     ;
 
@@ -205,23 +223,6 @@ VARIABLE encodes 0 encodes ! \ кончик цепочки енкодов
     R> 
     ;
 
-0 \ структура операнда
-CELL -- .tag
-CELL -- .maskOp
-CELL -- .xtOp
-CONSTANT structOp
-
-0 \ структура кодировщика команды
-CELL -- .link     \  поле связи цепи всех кодировщиков
-CELL -- .alt      \  поле связи цепи альтернатив
-CELL -- .cliche   \  клише команды
-CELL -- .mask     \  маска команды
-structOp -- .ops  \  операнд
-\  ...            \  другие операнды
-\ CELL - 0        \  тэг мнемоники или конец операндов
-\ CELL - adrMnemo \  адрес структуры мнемоники
-DROP
-
 : structEncode ( mnem n*[xt,teg] adr u2 -- mnem) \ создать структуру кодировщика команды
     \ по шаблону adr u2
     2>R
@@ -249,21 +250,6 @@ DROP
 
 \ ============================================================================
 \ слова лишние, но помогающие
-: shwPRE ( --) \ показать предварительные поля
-    ." ------------------------------------" CR
-    ." |cond| S | Rd | Rt | Rn | Rm | imm |" CR
-    ." ------------------------------------" CR
-    pre .cond @ 4 .R 2 SPACES
-    pre .Set  @ 2 .R SPACE   
-    pre .Rd   @ 4 .R SPACE
-    pre .Rt   @ 4 .R SPACE
-    pre .Rn   @ 4 .R SPACE
-    pre .Rm   @ 4 .R SPACE
-    pre .imm  @ 4 .R SPACE
-    CR 
-    ." ------------------------------------" CR
-    ;
-
 #def tab> R@ SPACES
 : 32bit. ( u -- ) \ печатать 32-битное число в бинаронм виде
     8 CELLS BIN[ U.0R ]BIN 
