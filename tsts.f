@@ -16,6 +16,8 @@ bin[ 101 10111000 TUCK disperse SWAP CONDENse . ]bin CR
 asm? on SP bin> 10111000 <reg> enc @ .bin CR
 asm? off bin> 10111000 <reg> type CR
 
+ C[ adcs R3 r7 ]C enc @ .bin
+
 \EOF \ локальные отладочные тесты
 
 \ WORDS

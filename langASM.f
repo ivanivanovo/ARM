@@ -157,16 +157,31 @@ structOp -- .ops  \  операнд
 \ CELL - 0        \  тэг мнемоники или конец операндов
 \ CELL - adrMnemo \  адрес структуры мнемоники
 DROP
+
 : sacker ( j*x adr-alt --) \ упаковать операнды в код
-    
+    DUP .cliche @ enc !
+    .ops
+    BEGIN  DUP @
+    WHILE  DUP >R .maskOp 2@ SWAP EXECUTE R> structOp +
+    REPEAT DROP
     ;
 
 : asmcoder ( j*x adr-alt -- i*x ) 
     \ на стеке лежат операнды предыдущего оператора (команды)
-    >R operator @ \ замена оператора
-    ?DUP IF @ sacker THEN
-    R> operator ! \ будет ждать своих операторов
+    >R operator @ \ заменить оператор на предыдущий
+    ?DUP 
+    IF @ ['] sacker CATCH
+    
+    THEN
+    R> operator ! \ этот будет ждать своих операторов
     ;
+
+: c[ ( --) \ начать ассемблирование
+    ASM? ON
+    ;
+: ]c ( --) \ закончить ассемблирование
+    0 asmcoder
+    ;    
 
 : discoder ( )
     ;
@@ -282,10 +297,10 @@ DROP
 
 : shwCmd ( xt --) \ показать команду полностью
     DUP shwMnemo
-    >BODY 0 >R
-    BEGIN DUP @ 
-    WHILE @ DUP R> 4 + DUP >R shwEncode CELL+ 
-    REPEAT DROP R> DROP
+    >BODY 0 SWAP ( tab xt)
+    BEGIN @ DUP 
+    WHILE SWAP 4 + 2DUP shwEncode SWAP .alt 
+    REPEAT 2DROP 
     ;
 
 \ PREVIOUS DEFINITIONS    
