@@ -8,6 +8,8 @@ ALSO ASSEMBLER DEFINITIONS
 
 VARIABLE ASM? \ переменная состояния, TRUE кодирование, FALSE декодирование 
 VARIABLE operator 0 operator ! \ текущий оператор (команда)
+VARIABLE lastDepth \ глубина стека перед отсрочкой оператора
+VARIABLE lastErrAsm \ код последней ошибки ассемблера
 VARIABLE enc \ текущий код команды
 VARIABLE encodes 0 encodes ! \ кончик цепочки енкодов
 
@@ -16,6 +18,7 @@ ErrNo CONSTANT errNoReg     \ Не регистр
 ErrNo CONSTANT errRlo       \ Не младший регистр
 ErrNo CONSTANT errRdn       \ Разные регистры
 ErrNo CONSTANT errBigOp     \ Слишком большое число в операнде 
+ErrNo CONSTANT errOddOp     \ лишнее операнды или их нехватка
 ErrNo CONSTANT errImm!2     \ нечетное число 
 ErrNo CONSTANT errImm!4     \ невыровненное число
 ErrNo CONSTANT err+Label    \ метка должна быть только вперед
@@ -95,8 +98,12 @@ ASM? ON
     enc @ SWAP condense
     ;
 
+: itisReg? ( r x -- r x f) \ TRUE - регистр, FALSE - число
+    OVER itisReg = 
+    ;
+
 : Reg! ( [r,x] mask --) \ запомнить номер регистра в текущей команде
-    ROT itisReg = IF >enc ELSE errNoReg THROW THEN
+    >R itisReg? IF NIP R> >enc ELSE errNoReg THROW THEN
     ;
 
 : Reg# ( #Reg -- c-adr u) \ дать строку с цифровым именем регистра
@@ -116,8 +123,13 @@ ASM? ON
     DIS> ( mask -- c-adr u ) enc> RegName
     ;
 
+: maybe0 ( u x  -- u x| u x 0) \ возможно пропущен 0
+    \ если u x регистр, то добавить 0 на стек
+    OVER itisReg = IF 0 THEN
+    ;
 : <Imm> \ простое числовое значение
-    ASM> ( x mask --) >enc
+    \ imm=0 может быть опущен
+    ASM> ( ? x mask --) >R itisReg? 0= IF R@ >enc THEN R> DROP
     DIS> ( mask -- x) enc>
     ; 
 
@@ -137,6 +149,7 @@ ASM? ON
     2>R OVER itisReg =
     IF \ два регистра
         2R@ D= 0= errRdn AND THROW \ проверка убивает дубликат
+        lastDepth @ DUP . CR 2- lastDepth ! \ скорректировать глубину
     THEN \ один регистр
     2R> <Reg> ; CHAR d 2CONSTANT Rdn  : Rdn, Rdn ;
 
@@ -157,30 +170,56 @@ structOp -- .ops  \  операнд
 \ CELL - 0        \  тэг мнемоники или конец операндов
 \ CELL - adrMnemo \  адрес структуры мнемоники
 DROP
-
-: sacker ( j*x adr-alt --) \ упаковать операнды в код
-    DUP .cliche @ enc !
-    .ops
+: execOp ( j*x adr-ops -- i*x) \ выполнить обработчики операндов
     BEGIN  DUP @
     WHILE  DUP >R .maskOp 2@ SWAP EXECUTE R> structOp +
     REPEAT DROP
+    ; 
+: sacker ( j*x adr-alt --) \ упаковать операнды в код
+    DUP .cliche @ enc !
+    .ops execOp
+    \ проверить потребление операндов
+    DEPTH lastDepth @ - IF errOddOp THROW THEN
     ;
 
+\ ============ стек временного хранения стека данных ================
+100 VSTACK T \ V-стек 
+: nDROP ( j*x u -- [j-n]*x) \ множественное удаление данных со стека
+    ?DUP IF 0 DO DROP LOOP THEN
+    ;
+: T! DEPTH T >STACK ; \ запомнит стек на всю глубину
+: T@ DEPTH T @ @ MIN nDROP \ очистить стек под восстановление
+     T STACK@ DROP \ востановить данне стека
+     ;
+: Tdrop T STACK>DROP ; \ убрать запись восстановления 
+\ ===================================================================
+
 : asmcoder ( j*x adr-alt -- i*x ) 
-    \ на стеке лежат операнды предыдущего оператора (команды)
+    \ на стеке лежат операнды предыдущего оператора/команды
     >R operator @ \ заменить оператор на предыдущий
     ?DUP 
-    IF @ ['] sacker CATCH
-    
+    IF @ T! \ сделать снимок стека
+        \ цикл перебора альтернативных кодировок
+        BEGIN T@ \ восстановить стек
+            ['] sacker CATCH ?DUP \ попытка кодирования 
+        WHILE lastErrAsm ! \ неудача
+              \ восстановить стек после сбоя
+              T@ .alt @ ?DUP \ перейти на альтернативную кодировку
+        WHILE Tdrop T! \ сделать новый снимок стека
+        REPEAT Tdrop 0 operator ! lastErrAsm @ THROW \ выход с ошибкой
+        THEN
+        Tdrop \ нормальный выход, сброс снимка 
     THEN
-    R> operator ! \ этот будет ждать своих операторов
+    R> operator ! \ этот будет ждать своих операндов
+    DEPTH lastDepth ! \ запомнить текущую глубину стека
     ;
 
 : c[ ( --) \ начать ассемблирование
-    ASM? ON
+    ASM? ON \ переключить режим
     ;
 : ]c ( --) \ закончить ассемблирование
-    0 asmcoder
+    0 asmcoder \ обработать последний операнд
+    ASM? OFF \ переключить режим
     ;    
 
 : discoder ( )
