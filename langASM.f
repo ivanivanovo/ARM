@@ -12,16 +12,48 @@ VARIABLE lastDepth \ глубина стека перед отсрочкой о�
 VARIABLE lastErrAsm \ код последней ошибки ассемблера
 VARIABLE enc \ текущий код команды
 VARIABLE encodes 0 encodes ! \ кончик цепочки енкодов
+VARIABLE errNet  0 errNet  ! \ кончик цепочки ошибок
+
+#def NOT 0= 
+
+: +net ( adr net -- adr') \ включить adr в цепочку net
+    \ adr' указатель на следующее звено
+    DUP @ -ROT ! 
+    ;
+
+0 \ структура статьи ошибки
+CELL -- .NextErr  
+CELL -- .NumErr  
+   1 -- .TxtErr \ строка со счетчиком
+DROP
+
+: err: ( n "описание" --)
+    CREATE 
+    HERE errNet +net , ,
+    BL WORD DROP
+    [CHAR] " PARSE str!
+    DOES> .NumErr @ ;
+
+: err? ( n -- c-addr u) \ найти описание ошибки
+    >R
+    errNet
+    BEGIN @ DUP \ пока не 0
+    WHILE DUP .NumErr @ R@ = UNTIL .TxtErr COUNT ELSE
+        DROP S" неизвестная ошибка" 
+    THEN
+    R> DROP
+    ;
 
 300 COUNTER: ErrNo
-ErrNo CONSTANT errNoReg     \ Не регистр
-ErrNo CONSTANT errRlo       \ Не младший регистр
-ErrNo CONSTANT errRdn       \ Разные регистры
-ErrNo CONSTANT errBigOp     \ Слишком большое число в операнде 
-ErrNo CONSTANT errOddOp     \ лишнее операнды или их нехватка
-ErrNo CONSTANT errImm!2     \ нечетное число 
-ErrNo CONSTANT errImm!4     \ невыровненное число
-ErrNo CONSTANT err+Label    \ метка должна быть только вперед
+ErrNo err: errEncode S" не удалось закодировать"
+ErrNo err: errNoReg  S" Не регистр"
+ErrNo err: errRlo    S" Не младший регистр"
+ErrNo err: errRdn    S" Разные регистры"
+ErrNo err: errBigOp  S" Слишком большое число в операнде"
+ErrNo err: errOddOp  S" лишнее операнды или их нехватка"
+ErrNo err: errImm!2  S" нечетное число "
+ErrNo err: errImm!4  S" невыравненное число"
+ErrNo err: err+Label S" метка должна быть только вперед"
 
 \ Condition number
 \    cond                Mnemonic  Meaning                         Condition flags
@@ -67,6 +99,7 @@ ASM? ON
 #def ASM> ASM? @ IF
 #def DIS> EXIT THEN
 #def R<<  R> 1 LSHIFT >R
+
 : 2RSHIFT ( x1 x2 u -- x1>>u x2>>u) \ сдвинуть вправо пару чисел
     DUP >R RSHIFT SWAP R> RSHIFT SWAP 
     ;
@@ -98,6 +131,8 @@ ASM? ON
     enc @ SWAP condense
     ;
 
+\ ============ Обработка операндов ==================================
+
 : itisReg? ( r x -- r x f) \ TRUE - регистр, FALSE - число
     OVER itisReg = 
     ;
@@ -123,10 +158,6 @@ ASM? ON
     DIS> ( mask -- c-adr u ) enc> RegName
     ;
 
-: maybe0 ( u x  -- u x| u x 0) \ возможно пропущен 0
-    \ если u x регистр, то добавить 0 на стек
-    OVER itisReg = IF 0 THEN
-    ;
 : <Imm> \ простое числовое значение
     \ imm=0 может быть опущен
     ASM> ( ? x mask --) >R itisReg? 0= IF R@ >enc THEN R> DROP
@@ -139,20 +170,48 @@ ASM? ON
     LOOP NIP
     ;
 
+: duplex ( {[r,x]} [r,x] -- [r,x]) \ опциональный дубль регистров
+    2>R itisReg?
+    IF \ если два регистра, то должны быть одинаковые
+        2R@ D= 0= errRdn AND THROW \ проверка убивает дубликат
+    THEN \ один регистр
+    2R>
+    ;
+
+: assert= ( [r,x] [r,x] --) D= NOT errEncode AND THROW ;
+
+
+\ ############ Обработчики операндов ###########################
+
 \ обработчик|-тэг-|--операнд-----|-синоним|
 ' <Reg>     CHAR d 2CONSTANT Rd  : Rd, Rd ;
 ' <Reg>     CHAR n 2CONSTANT Rn  : Rn, Rn ;
 ' <Reg>     CHAR m 2CONSTANT Rm  : Rm, Rm ;
 ' <Reg>     CHAR t 2CONSTANT Rt  : Rt, Rt ;
 ' <Imm>     CHAR i 2CONSTANT imm
-:NONAME ( {[r,x]} [r,x] --) 
-    2>R OVER itisReg =
-    IF \ два регистра
-        2R@ D= 0= errRdn AND THROW \ проверка убивает дубликат
-        lastDepth @ DUP . CR 2- lastDepth ! \ скорректировать глубину
-    THEN \ один регистр
-    2R> <Reg> ; CHAR d 2CONSTANT Rdn  : Rdn, Rdn ;
+:NONAME ( {[r,x]} [r,x] mask --) >R duplex R> <Reg> ; 
+            CHAR d 2CONSTANT Rdn  : Rdn, Rdn ;
+:NONAME (  PC mask --)   DROP PC assert= ;
+            CHAR c 2CONSTANT PC,  
+:NONAME ( {PC,} mask --) DROP itisReg? IF PC assert= THEN ;
+            CHAR * 2CONSTANT {PC,}
+:NONAME (  SP mask --)   DROP SP assert= ;
+            CHAR p 2CONSTANT SP,  
+:NONAME ( {SP,} mask --) DROP itisReg? IF SP assert= THEN ;
+            CHAR * 2CONSTANT {SP,} 
 
+:NONAME ( imm!4 mask --) 
+    >R DUP 3 AND IF errImm!4 THROW ELSE 4 / THEN R> <Imm> ;
+            CHAR i 2CONSTANT imm!4
+:NONAME ( imm!2 mask --) 
+    >R DUP 1 AND IF errImm!2 THROW ELSE 2/  THEN R> <Imm> ;
+            CHAR i 2CONSTANT imm!2
+
+\ ===================================================================
+
+: +listExcepTag ( adr u -- adr' u') \ добавить к строке тэги исключения
+    \ строка adr u не изменяется, изменяется её временная копия
+    >S S" cp*" +>S S> ; 
 
 0 \ структура операнда
 CELL -- .tag
@@ -185,6 +244,7 @@ DROP
 \ ============ стек временного хранения стека данных ================
 100 VSTACK T \ V-стек 
 : nDROP ( j*x u -- [j-n]*x) \ множественное удаление данных со стека
+    >R DEPTH R> MIN
     ?DUP IF 0 DO DROP LOOP THEN
     ;
 : T! DEPTH T >STACK ; \ запомнит стек на всю глубину
@@ -193,7 +253,12 @@ DROP
      ;
 : Tdrop T STACK>DROP ; \ убрать запись восстановления 
 \ ===================================================================
-
+: errQuit ( --)
+    0 operator ! 
+    SOURCE TYPE CR 
+    >IN @ 2- SPACES ." ^-" lastErrAsm @ err? TYPE 
+    QUIT \ THROW
+    ; 
 : asmcoder ( j*x adr-alt -- i*x ) 
     \ на стеке лежат операнды предыдущего оператора/команды
     >R operator @ \ заменить оператор на предыдущий
@@ -206,7 +271,7 @@ DROP
               \ восстановить стек после сбоя
               T@ .alt @ ?DUP \ перейти на альтернативную кодировку
         WHILE Tdrop T! \ сделать новый снимок стека
-        REPEAT Tdrop 0 operator ! lastErrAsm @ THROW \ выход с ошибкой
+        REPEAT Tdrop errQuit \ выход с ошибкой
         THEN
         Tdrop \ нормальный выход, сброс снимка 
     THEN
@@ -246,10 +311,6 @@ DROP
     THEN 
     ;
 
-: +net ( adr net -- adr') \ включить adr в цепочку net
-    \ adr' указатель на следующее звено
-    DUP @ -ROT ! 
-    ;
 
 : tagMask ( adr u tag -- маска) \ из стоки adr u вида "0100000101mmmddd"
     \ сделать маску по тэгу(символу)
@@ -281,7 +342,8 @@ DROP
     \ по шаблону adr u2
     2>R
     2R@ cliche&mask , ,
-    BEGIN DUP 2R@ inStr? \ потребление операндов
+    BEGIN DUP 2R@ +listExcepTag inStr? 
+        \ потребление операндов
     WHILE DUP , 2R@ ROT tagMask , , REPEAT
     2R> 2DROP
     0 , DUP , 

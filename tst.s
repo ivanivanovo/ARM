@@ -6,8 +6,9 @@
   .text
   .global tstADD
 tstADD:
-    adds r0,r1,r2
-    adds r0,r0,r7
+    adcs r3,r7
+    adds r3,r7,1
+    adds r3,1
     adds r0,r1
     add  r0,r9
     add  r0,pc,#20
