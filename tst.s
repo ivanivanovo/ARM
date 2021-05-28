@@ -7,11 +7,15 @@
   .global tstADD
 tstADD:
     adcs r3,r7
+    adds r1,r1
+    adds r1,r1,2
+    adds r1,2
     adds r3,r7,1
     adds r3,1
-    adds r0,r1
-    add  r0,r9
-    add  r0,pc,#20
+    adds r1,r2
+    adds r1,r1,r2
+    add  r1,r9
+    add  r1,pc,#20
     ADD  PC , R8
     add  r8,pc
     add  sp,sp,sp
@@ -22,21 +26,21 @@ tstADD:
 l2: bl   label1
     cmp  r1,r9
     cmp  r1,r2
-    ands r0,r1
+    ands r1,r2
     cpsie i
     cpsid i
     dmb
     dmb  sy
-    ldm  r0,  {r0-r7 }
-    ldm  r0!, { r1,r2}
-    ldr  r0,  [r1,4]
-    ldr  r0,  [sp,8]
-    ldrb r0,  [r1,#1]
+    ldm  r3,  {r3-r7 }
+    ldm  r3!, { r1,r2}
+    ldr  r3,  [r1,4]
+    ldr  r3,  [sp,8]
+    ldrb r3,  [r1,#1]
 label1:
-    mov  r0, r1
-    movs r0, r1
+    mov  r2, r1
+    movs r2, r1
     mov  r8, r1
     mrs  r1, iapsr
-    movs r0, r1, asr 3
+    movs r2, r1, asr 3
     bl l2
     nop

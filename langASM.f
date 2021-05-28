@@ -159,8 +159,7 @@ ASM? ON
     ;
 
 : <Imm> \ простое числовое значение
-    \ imm=0 может быть опущен
-    ASM> ( ? x mask --) >R itisReg? 0= IF R@ >enc THEN R> DROP
+    ASM> ( x mask --) >enc 
     DIS> ( mask -- x) enc>
     ; 
 
@@ -185,10 +184,11 @@ ASM? ON
 
 \ обработчик|-тэг-|--операнд-----|-синоним|
 ' <Reg>     CHAR d 2CONSTANT Rd  : Rd, Rd ;
-' <Reg>     CHAR n 2CONSTANT Rn  : Rn, Rn ;
 ' <Reg>     CHAR m 2CONSTANT Rm  : Rm, Rm ;
 ' <Reg>     CHAR t 2CONSTANT Rt  : Rt, Rt ;
 ' <Imm>     CHAR i 2CONSTANT imm
+:NONAME ( {[r,x]} [r,x] mask -- ) >R 2>R itisReg? NOT IF 2R@ THEN 2R> R> <Reg> ;
+            CHAR n 2CONSTANT Rn  : Rn, Rn ;
 :NONAME ( {[r,x]} [r,x] mask --) >R duplex R> <Reg> ; 
             CHAR d 2CONSTANT Rdn  : Rdn, Rdn ;
 :NONAME (  PC mask --)   DROP PC assert= ;
