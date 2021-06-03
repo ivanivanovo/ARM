@@ -1,7 +1,13 @@
 \ язык для описания команд ассемблера
 \ 
-REQUIRE toolbox  toolbox.f
-REQUIRE 2CONSTANT lib/include/double.f
+REQUIRE toolbox     toolbox.f
+REQUIRE 2CONSTANT   lib/include/double.f
+REQUIRE +net        nets.f
+REQUIRE err:        errorsnet.f
+
+#def NOT 0= ( x --T|F) \ инверсия результата
+    \ усли x=0 - FALSE, иначе TRUE
+
 DECIMAL \ десятичная система счисления
 VOCABULARY ASSEMBLER
 ALSO ASSEMBLER DEFINITIONS
@@ -12,37 +18,7 @@ VARIABLE lastDepth \ глубина стека перед отсрочкой о�
 VARIABLE lastErrAsm \ код последней ошибки ассемблера
 VARIABLE enc \ текущий код команды
 VARIABLE encodes 0 encodes ! \ кончик цепочки енкодов
-VARIABLE errNet  0 errNet  ! \ кончик цепочки ошибок
 
-#def NOT 0= 
-
-: +net ( adr net -- adr') \ включить adr в цепочку net
-    \ adr' указатель на следующее звено
-    DUP @ -ROT ! 
-    ;
-
-0 \ структура статьи ошибки
-CELL -- .NextErr  
-CELL -- .NumErr  
-   1 -- .TxtErr \ строка со счетчиком
-DROP
-
-: err: ( n "описание" --)
-    CREATE 
-    HERE errNet +net , ,
-    BL WORD DROP
-    [CHAR] " PARSE str!
-    DOES> .NumErr @ ;
-
-: err? ( n -- c-addr u) \ найти описание ошибки
-    >R
-    errNet
-    BEGIN @ DUP \ пока не 0
-    WHILE DUP .NumErr @ R@ = UNTIL .TxtErr COUNT ELSE
-        DROP S" неизвестная ошибка" 
-    THEN
-    R> DROP
-    ;
 
 300 COUNTER: ErrNo
 ErrNo err: errEncode S" не удалось закодировать"
@@ -78,7 +54,7 @@ BIN> 1110 CONSTANT   ..AL    \ ALways (unconditional) Any
 
 \ Регистр представлен на стеке парой чисел:
 \ признак регистра & номер регистра
-\ в стековой нотации эта пара [r,x]
+\ в стековой нотации эта пара обозначается [r,x]
 129 CONSTANT itisReg \ признак регистра
 : REGISTER: ( n <name> --) \ слово определяющее регистр
     CREATE , itisReg , 
@@ -171,15 +147,22 @@ ASM? ON
     LOOP NIP
     ;
 
-: duplex ( {[r,x]} [r,x] -- [r,x]) \ опциональный дубль регистров
+: maybe_duplex ( {[r,x]} [r,x] -- [r,x]) \ опциональный дубль регистров
+    \ если на стеке два регистра, то они должны быть одинаковые
+    \ дубль убрать
     2>R itisReg?
-    IF \ если два регистра, то должны быть одинаковые
-        2R@ D= 0= errRdn AND THROW \ проверка убивает дубликат
+    IF 2R@ D= NOT errRdn AND THROW \ проверка убивает дубликат
     THEN \ один регистр
     2R>
     ;
+: need_two ( {[r',x']} [r,x] -- [r',x'] [r,x]) \ нужно два регистра
+    \ если на стеке два регистра - ничего не делать
+    \ если на стеке один регистр - продублировать его
+    2>R itisReg? NOT IF 2R@ THEN 2R>
+    ;
 
-: assert= ( [r,x] [r,x] --) D= NOT errEncode AND THROW ;
+: assert= ( [r,x] [r,x] --) D= NOT errEncode AND THROW 
+    ;
 
 
 \ ############ Обработчики операндов ###########################
@@ -189,9 +172,10 @@ ASM? ON
 ' <Reg>     CHAR m 2CONSTANT Rm  : Rm, Rm ;
 ' <Reg>     CHAR t 2CONSTANT Rt  : Rt, Rt ;
 ' <Imm>     CHAR i 2CONSTANT imm
-:NONAME ( {[r,x]} [r,x] mask -- ) >R 2>R itisReg? NOT IF 2R@ THEN 2R> R> <Reg> ;
-            CHAR n 2CONSTANT Rn  : Rn, Rn ;
-:NONAME ( {[r,x]} [r,x] mask --) >R duplex R> <Reg> ; 
+:NONAME ( {[r',x']} [r,x] mask -- [r',x']) >R need_two R> <Reg> ;
+    \ в отсутствии Rd ([r',x']), Rn ([r,x]) оставит свой дубликат ([r,x]=[r',x'])
+            CHAR n 2CONSTANT Rn  : Rn, Rn ; \  
+:NONAME ( {[r,x]} [r,x] mask --) >R maybe_duplex R> <Reg> ; 
             CHAR d 2CONSTANT Rdn  : Rdn, Rdn ;
 :NONAME (  PC mask --)   DROP PC assert= ;
             CHAR c 2CONSTANT PC,  
@@ -201,7 +185,6 @@ ASM? ON
             CHAR p 2CONSTANT SP,  
 :NONAME ( {SP,} mask --) DROP itisReg? IF SP assert= THEN ;
             CHAR * 2CONSTANT {SP,} 
-
 :NONAME ( imm!4 mask --) 
     >R DUP 3 AND IF errImm!4 THROW ELSE 4 / THEN R> <Imm> ;
             CHAR i 2CONSTANT imm!4
@@ -224,6 +207,7 @@ CONSTANT structOp
 0 \ структура кодировщика команды
 CELL -- .link     \  поле связи цепи всех кодировщиков
 CELL -- .alt      \  поле связи цепи альтернатив
+CELL -- .help     \  помощники команды
 CELL -- .cliche   \  клише команды
 CELL -- .mask     \  маска команды
 structOp -- .ops  \  операнд
@@ -307,8 +291,7 @@ DROP
         >BODY \ выдать адрес структуры мнемоники
     ELSE \ нету, создать
         >IN ! CREATE    
-        HERE 0 , 2R> str!
-        ALIGN 
+        HERE 0 , 2R> str! ALIGN 
         DOES> asmcoder
     THEN 
     ;
@@ -353,23 +336,51 @@ DROP
     
 : Encod: ( mnem n*[xt,teg] "encode" --  ) \ строит структуру кодирования 
 \ потребляет операнды и мнемонику со стека
-    HERE encodes +net , \ включиться в цепочку кодировщиков
+    HERE encodes +net , \ включиться в цепочку кодировщиков (в начало)
     0 , \ указатель на альтернативный кодировщик
-    BL PARSE structEncode
+    0 , \ помощники
+    BL PARSE structEncode \ создать структуру
+    \ и включить ее в конец цепочки альтернатив
     BEGIN DUP @ WHILE @ CELL+ REPEAT encodes @ SWAP !
     ;
 
 
 
+: phrase ( <str> -- adr u) \ взять из входного потока фразу
+    \ фраза: последовательность слов разделенных 1 пробелом
+    BL WORD COUNT >S \ первое слово берется без ведущих пробелов
+    BEGIN BL PARSE ?DUP \ остальные берутся как есть, 
+                        \ много пробелов - конец фразы
+    WHILE BL EMIT>S +>S
+    REPEAT DROP S> 
+    ;
 
+0 \ структура помощника
+CELL -- .hLink
+CELL -- .hTag
+   1 -- .hStr
+DROP \ переменный размер
 
+: helper: ( tag <name> -- ) \ определить помощника
+    CREATE ,
+    DOES> @
+        HERE encodes @ .help +net ,
+        , phrase str! ALIGN 
+    ;
 
+CHAR A helper: Action: ( <str> --) \ строка описывающее действие команды
+CHAR F helper: Flags:  ( <str> --) \ -*- флаги на которые влияет команда
+CHAR C helper: Cycles: ( <str> --) \ -*- циклы
+CHAR N helper: Notes:  ( <str> --) \ дополнительные замечания
 
+: help. ( .help --)
+    BEGIN @ DUP WHILE DUP .hStr COUNT TYPE CR REPEAT DROP
+    ;
 
 \ ============================================================================
 \ слова лишние, но помогающие
 #def tab> R@ SPACES
-: 32bit. ( u -- ) \ печатать 32-битное число в бинаронм виде
+: 32bit. ( u -- ) \ печатать 32-битное число в бинарном виде
     8 CELLS BIN[ U.0R ]BIN 
     ;
 : shwEncode ( adr tab --) \ показать структуру кодировщика команды
@@ -381,14 +392,16 @@ DROP
     tab> ." ---------------------------------------" CR 
     tab> DUP .cliche ." clishe=" @ 32bit.            CR 
     tab> DUP .mask   ." mask=  " @ 32bit.            CR 
-         .ops
+         DUP .ops
          BEGIN DUP  @ WHILE
     tab>     DUP   ." tag=   " @ EMIT                CR 
     tab>     DUP .maskOp ." mask=  " @ 32bit.        CR 
     tab>     DUP .xtOp   ." xt=    " @ .HEX          CR 
              structOp +
          REPEAT
-    tab> CELL+ @ CELL+ ." mnemo= " COUNT TYPE        CR 
+    tab> CELL+ @ CELL+ ." mnemo= " COUNT TYPE    CR
+    tab> ." ---------------------------------------" CR 
+    .help help.  CR 
     R> DROP
     ;
 

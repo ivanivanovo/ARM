@@ -6,7 +6,6 @@ CASE-INS OFF
 REQUIRE 2CONSTANT lib/include/double.f
 REQUIRE toolbox  toolbox.f
 REQUIRE langASM langASM.f 
-\ S" list.f" INCLUDED
 \ S" ARMv6-Mset.f" INCLUDED
 
 
