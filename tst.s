@@ -8,9 +8,9 @@
 tstADD:
     adcs r3,r7
     adds r1,r1
-    adds r1,r1,2
-    adds r1,2
-    adds r3,r7,1
+    adds r1,r1,20
+    adds r1,20
+    adds r3,r7,7
     adds r3,1
     adds r1,r2
     adds r1,r1,r2

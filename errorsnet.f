@@ -10,9 +10,10 @@ DROP \ размер неопределен
 
 : err: ( n "описание" --)
     CREATE 
-    HERE errNet +net , ,
-    BL WORD DROP
-    [CHAR] " PARSE str! ALIGN
+    HERE 0 , errNet +net \ включить в цепочку
+    , \ запомнить номер
+    BL WORD DROP \ поглотить следующее слово, S"
+    [CHAR] " PARSE str! ALIGN \ взять описание
     DOES> .NumErr @ ;
 
 : err? ( n -- c-addr u) \ найти описание ошибки

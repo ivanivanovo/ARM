@@ -169,12 +169,13 @@ ASM? ON
 
 \ обработчик|-тэг-|--операнд-----|-синоним|
 ' <Reg>     CHAR d 2CONSTANT Rd  : Rd, Rd ;
+' <Reg>     CHAR n 2CONSTANT Rn  : Rn, Rn ;
 ' <Reg>     CHAR m 2CONSTANT Rm  : Rm, Rm ;
 ' <Reg>     CHAR t 2CONSTANT Rt  : Rt, Rt ;
 ' <Imm>     CHAR i 2CONSTANT imm
 :NONAME ( {[r',x']} [r,x] mask -- [r',x']) >R need_two R> <Reg> ;
     \ в отсутствии Rd ([r',x']), Rn ([r,x]) оставит свой дубликат ([r,x]=[r',x'])
-            CHAR n 2CONSTANT Rn  : Rn, Rn ; \  
+            CHAR n 2CONSTANT Rnd,   \  
 :NONAME ( {[r,x]} [r,x] mask --) >R maybe_duplex R> <Reg> ; 
             CHAR d 2CONSTANT Rdn  : Rdn, Rdn ;
 :NONAME (  PC mask --)   DROP PC assert= ;
@@ -214,7 +215,9 @@ structOp -- .ops  \  операнд
 \  ...            \  другие операнды
 \ CELL - 0        \  тэг мнемоники или конец операндов
 \ CELL - adrMnemo \  адрес структуры мнемоники
+\    x - phrase   \  фраза команды  
 DROP
+
 : execOp ( j*x adr-ops -- i*x) \ выполнить обработчики операндов
     BEGIN  DUP @
     WHILE  DUP >R .maskOp 2@ SWAP EXECUTE R> structOp +
@@ -239,6 +242,7 @@ DROP
      ;
 : Tdrop T STACK>DROP ; \ убрать запись восстановления 
 \ ===================================================================
+
 : errQuit ( --)
     0 operator ! 
     SOURCE TYPE CR 
@@ -276,13 +280,29 @@ DROP
 : discoder ( )
     ;
 
+S"     " DROP @ CONSTANT 4BL \ 4 пробела как число 
+: phrase ( <str> -- adr u)  \ выделить из входного потока фразу
+    \ фраза: последовательность слов разделенных не более чем 3 пробелами
+    SOURCE >IN @ /STRING SWAP >R \ R: адрес начала строки
+    0 \ u i
+    BEGIN  2DUP = NOT WHILE DUP R@ + @ 4BL = NOT WHILE 1+ REPEAT THEN
+    NIP R> SWAP
+    ;
+
+: 4BLparse ( <str> -- adr u) \ взять из входного потока фразу
+    \ фраза: последовательность слов разделенных не более чем 3 пробелами
+    phrase >IN @ OVER + >IN ! \ отрезать фразу
+    ;
+
 \ структура мнемоники
 \ alt   - указатель на вариант операндов/енкода для ассемблирования
 \ c-str - мнемоника, строка со счетчиком
 
-: Assm: ( "mnemonics" -- ->mnemo ) \ создает или находит структуру 
+: Assm: ( "mnemonics" -- -> adr u mnemo ) \ создает или находит структуру 
     \ ассемблерной команды <mnemonics>
     \ возвращает ссылку на неё
+    \ и её фразу
+    phrase
     >IN @  BL PARSE 2>R \ R: adr u - мнемоника во входном буфере
     2R@ UPPERCASE-W \ ВСЕГДА В ВЕРХНЕМ РЕГИСТРЕ
     2R@ GET-CURRENT SEARCH-WORDLIST  
@@ -323,20 +343,25 @@ DROP
     R> 
     ;
 
-: structEncode ( mnem n*[xt,teg] adr u2 -- mnem) \ создать структуру кодировщика команды
-    \ по шаблону adr u2
+: netHelp+ ( -- ) \ добавить Это место к помощникам
+    HERE encodes @ .help net+ 
+    ;
+
+: structEncode ( adr u mnem n*[xt,teg] adr2 u2 -- mnem) \ создать структуру кодировщика команды
+    \ по шаблону adr2 u2
     2>R
     2R@ cliche&mask , ,
     BEGIN DUP 2R@ +listExcepTag inStr? 
         \ потребление операндов
     WHILE DUP , 2R@ ROT tagMask , , REPEAT
     2R> 2DROP
-    0 , DUP , 
+    0 , DUP , -ROT 
+    netHelp+ 0 , [CHAR] P , str! ALIGN \ запомнить фразу команды
     ;
     
 : Encod: ( mnem n*[xt,teg] "encode" --  ) \ строит структуру кодирования 
 \ потребляет операнды и мнемонику со стека
-    HERE encodes +net , \ включиться в цепочку кодировщиков (в начало)
+    HERE 0 , encodes +net \ включиться в цепочку кодировщиков (в начало)
     0 , \ указатель на альтернативный кодировщик
     0 , \ помощники
     BL PARSE structEncode \ создать структуру
@@ -345,27 +370,17 @@ DROP
     ;
 
 
-
-: phrase ( <str> -- adr u) \ взять из входного потока фразу
-    \ фраза: последовательность слов разделенных 1 пробелом
-    BL WORD COUNT >S \ первое слово берется без ведущих пробелов
-    BEGIN BL PARSE ?DUP \ остальные берутся как есть, 
-                        \ много пробелов - конец фразы
-    WHILE BL EMIT>S +>S
-    REPEAT DROP S> 
-    ;
+\ ============== слова помощники/описатели команд ===========================
 
 0 \ структура помощника
-CELL -- .hLink
-CELL -- .hTag
-   1 -- .hStr
+CELL -- .hLink \ связь
+CELL -- .hTag  \ метка
+   1 -- .hStr  \ строка описания
 DROP \ переменный размер
 
 : helper: ( tag <name> -- ) \ определить помощника
     CREATE ,
-    DOES> @
-        HERE encodes @ .help +net ,
-        , phrase str! ALIGN 
+    DOES> @ netHelp+ 0 , , 4BLparse str! ALIGN 
     ;
 
 CHAR A helper: Action: ( <str> --) \ строка описывающее действие команды
@@ -373,13 +388,41 @@ CHAR F helper: Flags:  ( <str> --) \ -*- флаги на которые влия
 CHAR C helper: Cycles: ( <str> --) \ -*- циклы
 CHAR N helper: Notes:  ( <str> --) \ дополнительные замечания
 
-: help. ( .help --)
-    BEGIN @ DUP WHILE DUP .hStr COUNT TYPE CR REPEAT DROP
+: tag. ( symbol --) \ развернуть тэг
+    DUP [CHAR] P = IF ." Phrase: " ELSE
+    DUP [CHAR] A = IF ." Action: " ELSE
+    DUP [CHAR] F = IF ." Flags : " ELSE
+    DUP [CHAR] C = IF ." Cycles: " ELSE
+    DUP [CHAR] N = IF ." Notes : " 
+    THEN THEN THEN THEN THEN DROP
+    ;
+
+#def tab> R@ SPACES
+: help. ( .help tab --)
+    >R
+    BEGIN @ DUP 
+    WHILE DUP .hTag C@ tab> tag.
+          DUP .hStr COUNT TYPE CR
+    REPEAT DROP 
+    R> DROP
+    ;
+
+: helpAsm ( <name> --) \ показать справку по команде <name>
+    CR BL WORD FIND
+    IF  >BODY ( xt)
+        0 >R
+        BEGIN @ DUP 
+        WHILE DUP .help R@ help. .alt 
+              R> 4 + >R
+        REPEAT DROP 
+        R> DROP
+    ELSE DROP
+    THEN
     ;
 
 \ ============================================================================
 \ слова лишние, но помогающие
-#def tab> R@ SPACES
+
 : 32bit. ( u -- ) \ печатать 32-битное число в бинарном виде
     8 CELLS BIN[ U.0R ]BIN 
     ;
@@ -389,6 +432,7 @@ CHAR N helper: Notes:  ( <str> --) \ дополнительные замечан
     tab> ." =======================================" CR 
     tab> DUP       ." link=  " @ .HEX                CR 
     tab> DUP .alt  ." alt=   " @ .HEX                CR 
+    tab> DUP .help ." hlp=   " @ .HEX                CR 
     tab> ." ---------------------------------------" CR 
     tab> DUP .cliche ." clishe=" @ 32bit.            CR 
     tab> DUP .mask   ." mask=  " @ 32bit.            CR 
@@ -399,9 +443,9 @@ CHAR N helper: Notes:  ( <str> --) \ дополнительные замечан
     tab>     DUP .xtOp   ." xt=    " @ .HEX          CR 
              structOp +
          REPEAT
-    tab> CELL+ @ CELL+ ." mnemo= " COUNT TYPE    CR
+    tab> CELL+ @ CELL+ ." mnemo= " COUNT TYPE        CR
     tab> ." ---------------------------------------" CR 
-    .help help.  CR 
+    .help R@ help.  CR 
     R> DROP
     ;
 

@@ -6,7 +6,7 @@ CASE-INS OFF
 REQUIRE 2CONSTANT lib/include/double.f
 REQUIRE toolbox  toolbox.f
 REQUIRE langASM langASM.f 
-\ S" ARMv6-Mset.f" INCLUDED
+S" ARMv6-Mset.f" INCLUDED
 
 
 #def as sh arm-none-eabi-as -o tst.o tst.s -g
@@ -17,4 +17,4 @@ CASE-INS ON
 
 : aa dup 8 < if . 8 else -100 throw then ;
 : bb ['] aa catch -100 = if ." меньше" then ;
- S" tsts.f" INCLUDED
+S" tsts.f" INCLUDED
