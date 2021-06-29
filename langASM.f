@@ -175,7 +175,7 @@ ASM? ON
 ' <Imm>     CHAR i 2CONSTANT imm
 :NONAME ( {[r',x']} [r,x] mask -- [r',x']) >R need_two R> <Reg> ;
     \ в отсутствии Rd ([r',x']), Rn ([r,x]) оставит свой дубликат ([r,x]=[r',x'])
-            CHAR n 2CONSTANT Rnd,   \  
+            CHAR n 2CONSTANT Rnd : Rnd, Rnd ;  \  
 :NONAME ( {[r,x]} [r,x] mask --) >R maybe_duplex R> <Reg> ; 
             CHAR d 2CONSTANT Rdn  : Rdn, Rdn ;
 :NONAME (  PC mask --)   DROP PC assert= ;
@@ -242,13 +242,16 @@ DROP
      ;
 : Tdrop T STACK>DROP ; \ убрать запись восстановления 
 \ ===================================================================
-
+\ TODO: сделать накопитель ошибок
+\ если все альтернативы дали сбой - выдать весь список
+\ если хоть одна сработала - забыть про них
 : errQuit ( --)
     0 operator ! 
     SOURCE TYPE CR 
     >IN @ 2- SPACES ." ^-" lastErrAsm @ err? TYPE 
     QUIT \ THROW
     ; 
+
 : asmcoder ( j*x adr-alt -- i*x ) 
     \ на стеке лежат операнды предыдущего оператора/команды
     >R operator @ \ заменить оператор на предыдущий
