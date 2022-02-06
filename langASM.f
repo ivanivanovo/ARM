@@ -1,9 +1,10 @@
 \ язык для описания команд ассемблера
 \ 
-REQUIRE toolbox     toolbox.f
-REQUIRE 2CONSTANT   lib/include/double.f
-REQUIRE +net        nets.f
-REQUIRE err:        errorsnet.f
+REQUIRE toolbox         toolbox.f
+REQUIRE 2CONSTANT       lib/include/double.f
+REQUIRE +net            nets.f
+REQUIRE err:            errorsnet.f
+REQUIRE enqueueNOTFOUND nf-ext.f
 
 #def NOT 0= ( x --T|F) \ инверсия результата
     \ усли x=0 - FALSE, иначе TRUE
@@ -19,6 +20,20 @@ VARIABLE lastErrAsm \ код последней ошибки ассемблер�
 VARIABLE enc \ текущий код команды
 VARIABLE encodes 0 encodes ! \ кончик цепочки енкодов
 
+: replaceBytes ( adr u b1 b2 -- adr u i) \ заменить в строке adr u все быйты b1 на b2
+    \ i -количество замен
+    2>R 2DUP 0 -ROT 2R> 2SWAP 
+    OVER + SWAP
+    DO OVER I C@ = IF DUP I C! ROT 1+ -ROT THEN
+    LOOP 2DROP 
+    ;
+
+: nf-commaFree ( adr u -- true | adr u false) 
+\ попробовать интерпретировать строку без запятых
+    [CHAR] , BL replaceBytes
+    IF EVALUATE TRUE ELSE FALSE THEN 
+    ;
+' nf-commaFree enqueueNOTFOUND
 
 300 COUNTER: ErrNo
 ErrNo err: errEncode S" не удалось закодировать"
@@ -28,7 +43,7 @@ ErrNo err: errRdn    S" Разные регистры"
 ErrNo err: errBigOp  S" Слишком большое число в операнде"
 ErrNo err: errOddOp  S" лишнее операнды или их нехватка"
 ErrNo err: errImm!2  S" нечетное число "
-ErrNo err: errImm!4  S" невыравненное число"
+ErrNo err: errImm!4  S" невыровненное число"
 ErrNo err: err+Label S" метка должна быть только вперед"
 
 \ Condition number
@@ -168,24 +183,24 @@ ASM? ON
 \ ############ Обработчики операндов ###########################
 
 \ обработчик|-тэг-|--операнд-----|-синоним|
-' <Reg>     CHAR d 2CONSTANT Rd  : Rd, Rd ;
-' <Reg>     CHAR n 2CONSTANT Rn  : Rn, Rn ;
-' <Reg>     CHAR m 2CONSTANT Rm  : Rm, Rm ;
-' <Reg>     CHAR t 2CONSTANT Rt  : Rt, Rt ;
+' <Reg>     CHAR d 2CONSTANT Rd  \ : Rd, Rd ;
+' <Reg>     CHAR n 2CONSTANT Rn  \ : Rn, Rn ;
+' <Reg>     CHAR m 2CONSTANT Rm  \ : Rm, Rm ;
+' <Reg>     CHAR t 2CONSTANT Rt  \ : Rt, Rt ;
 ' <Imm>     CHAR i 2CONSTANT imm
 :NONAME ( {[r',x']} [r,x] mask -- [r',x']) >R need_two R> <Reg> ;
     \ в отсутствии Rd ([r',x']), Rn ([r,x]) оставит свой дубликат ([r,x]=[r',x'])
-            CHAR n 2CONSTANT Rnd : Rnd, Rnd ;  \  
+            CHAR n 2CONSTANT Rnd \ : Rnd, Rnd ;  \  
 :NONAME ( {[r,x]} [r,x] mask --) >R maybe_duplex R> <Reg> ; 
-            CHAR d 2CONSTANT Rdn  : Rdn, Rdn ;
+            CHAR d 2CONSTANT Rdn  \ : Rdn, Rdn ;
 :NONAME (  PC mask --)   DROP PC assert= ;
-            CHAR c 2CONSTANT PC,  
+            CHAR c 2CONSTANT PC  
 :NONAME ( {PC,} mask --) DROP itisReg? IF PC assert= THEN ;
-            CHAR * 2CONSTANT {PC,}
+            CHAR * 2CONSTANT {PC}
 :NONAME (  SP mask --)   DROP SP assert= ;
-            CHAR p 2CONSTANT SP,  
+            CHAR p 2CONSTANT SP  
 :NONAME ( {SP,} mask --) DROP itisReg? IF SP assert= THEN ;
-            CHAR * 2CONSTANT {SP,} 
+            CHAR * 2CONSTANT {SP} 
 :NONAME ( imm!4 mask --) 
     >R DUP 3 AND IF errImm!4 THROW ELSE 4 / THEN R> <Imm> ;
             CHAR i 2CONSTANT imm!4
@@ -236,6 +251,11 @@ DROP
     >R DEPTH R> MIN
     ?DUP IF 0 DO DROP LOOP THEN
     ;
+\ : NDROP ( i*x i -- )
+\   CELLS SP@ CELL+ + SP!
+\ ;
+
+
 : T! DEPTH T >STACK ; \ запомнит стек на всю глубину
 : T@ DEPTH T @ @ MIN nDROP \ очистить стек под восстановление
      T STACK@ DROP \ востановить данне стека
@@ -254,7 +274,8 @@ DROP
 
 : asmcoder ( j*x adr-alt -- i*x ) 
     \ на стеке лежат операнды предыдущего оператора/команды
-    >R operator @ \ заменить оператор на предыдущий
+    \ заменить оператор на предыдущий,
+    operator @ SWAP operator ! \ а текущий будет ждать своих операндов
     ?DUP 
     IF @ T! \ сделать снимок стека
         \ цикл перебора альтернативных кодировок
@@ -268,7 +289,6 @@ DROP
         THEN
         Tdrop \ нормальный выход, сброс снимка 
     THEN
-    R> operator ! \ этот будет ждать своих операндов
     DEPTH lastDepth ! \ запомнить текущую глубину стека
     ;
 
@@ -464,8 +484,7 @@ CHAR N helper: Notes:  ( <str> --) \ дополнительные замечан
     BEGIN @ DUP 
     WHILE SWAP 4 + 2DUP shwEncode SWAP .alt 
     REPEAT 2DROP 
-    ;
-
+    ; \ пример импользования: ' ANDS shwCmd
 \ PREVIOUS DEFINITIONS    
 #def langASM .( loaded) CR
 

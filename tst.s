@@ -4,22 +4,12 @@
   .thumb
 
   .text
-  .global tstADD
-tstADD:
-    adcs r3,r7
-    adds r1,r1
-    adds r1,r1,20
-    adds r1,20
-    adds r3,r7,7
-    adds r3,1
-    adds r1,r2
-    adds r1,r1,r2
-    add  r1,r9
-    add  r1,pc,#20
-    ADD  PC , R8
-    add  r8,pc
-    add  sp,sp,sp
-    //adr  r0, label1
+  .global tst
+tst:
+nop 
+nop  
+     add  sp,sp,sp
+    adr  r0, l2
     beq  l2
     bl   l2
     b .

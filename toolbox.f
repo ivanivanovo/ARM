@@ -15,16 +15,47 @@ DECIMAL
     : /STRING ( adr u n -- adr' u')
         ROT OVER + -ROT - ; 
 [THEN]
-[WITHOUT?] OFF 
-: OFF ( adr -- ) \ выключить переменную
-    FALSE SWAP ! ; 
-: ON  ( adr -- ) \ включить переменную   
-    TRUE  SWAP ! ; 
-[THEN]
 [WITHOUT?] WARNING VARIABLE WARNING [THEN]
 [WITHOUT?] 2VARIABLE : 2VARIABLE CREATE  2 CELLS ALLOT ; [THEN]
-\ V-stack
+: FindWord ( adr u -- 0 | xt 1| xt -1) \ ищет слово во всех словарях из списка поиска
+    2>R \ сохранить имя
+    GET-ORDER \ получить список словарей
+    BEGIN DUP \ пробег по словарям
+        WHILE \ пока есть словари
+        1- SWAP 2R@ ROT SEARCH-WORDLIST ?DUP 
+    UNTIL \ пока не найдёт
+    \ найдено
+    2>R \ сохранить результат
+    0 ?DO DROP LOOP \ удалить остаток списка
+    2R> \ восстановить результат 
+        THEN \ словари кончились, поиск не удался
+    2R> 2DROP \ удалить имя
+    ;
+VARIABLE CurVoc
+: FindVoc ( adr u -- 0 | wid) \ ищет слово во всех словарях, возвращает id словаря
+    2>R \ сохранить имя
+    GET-ORDER  \ получить список словарей
+    BEGIN DUP \ пробег по словарям
+        WHILE \ пока есть словари
+        1- SWAP 2R@ ROT \ подготовиться к поиску
+            DUP CurVoc ! \ запомнить id где ищем
+            SEARCH-WORDLIST \ ищем
+            DUP IF TRUE ELSE  0 CurVoc ! THEN \ не нашли - забываем
+    UNTIL \ пока не найдёт
+    \ найдено
+    2DROP \ удалить результат
+    0 ?DO DROP LOOP \ удалить остаток списка
+        THEN \ словари кончились, поиск не удался
+    2R> 2DROP \ удалить имя
+    CurVoc @
+    ;
+[WITH?] VOC-NAME.
+: FindVoc. ( adr u -- ) \ найти слово и напечатать имя словаря, где найдено
+    FindVoc ?DUP IF VOC-NAME. ELSE ." Не найдено." THEN
+    ;
+[THEN]
 \ ------------------------------------------------------------------------------
+\ V-stack
 REQUIRE NEW>S sstack.f \ S-stack 
 \ ------------------------------------------------------------------------------
 \ Vocs-stack
@@ -32,6 +63,15 @@ REQUIRE NEW>S sstack.f \ S-stack
 \ bases
 REQUIRE HEX[ bases.f
 \ ------------------------------------------------------------------------------
+
+[WITHOUT?] OFF 
+: OFF ( adr -- ) \ выключить переменную
+    FALSE SWAP ! ; 
+: ON  ( adr -- ) \ включить переменную   
+    TRUE  SWAP ! ; 
+[THEN]
+
+
 [WITHOUT?] W! 
 HEX[
 : W! ( cc addr -- ) \ записать два байта как число
@@ -239,44 +279,6 @@ WARNING !
     + ALIGNED \ выровненный адрес после строки с нулём
     BEGIN DUP @ 0= WHILE CELL+ REPEAT 
     ;
-: FindWord ( adr u -- 0 | xt 1| xt -1) \ ищет слово в всех словарях из списка поиска
-    2>R \ сохранить имя
-    GET-ORDER \ получить список словарей
-    BEGIN DUP \ пробег по словарям
-        WHILE \ пока есть словари
-        1- SWAP 2R@ ROT SEARCH-WORDLIST ?DUP 
-    UNTIL \ пока не найдёт
-    \ найдено
-    2>R \ сохранить результат
-    0 ?DO DROP LOOP \ удалить остаток списка
-    2R> \ восстановить результат 
-        THEN \ словари кончились, поиск не удался
-    2R> 2DROP \ удалить имя
-    ;
-VARIABLE CurVoc
-: FindVoc ( adr u -- 0 | wid) \ ищет слово в всех словарях, возвращает id словаря
-    2>R \ сохранить имя
-    
-    GET-ORDER  \ получить список словарей
-    BEGIN DUP \ пробег по словарям
-        WHILE \ пока есть словари
-        1- SWAP 2R@ ROT \ подготовиться к поиску
-            DUP CurVoc ! \ запомнить id где ищем
-            SEARCH-WORDLIST \ ищем
-            DUP IF TRUE ELSE  0 CurVoc ! THEN \ не нашли - забываем
-    UNTIL \ пока не найдёт
-    \ найдено
-    2DROP \ удалить результат
-    0 ?DO DROP LOOP \ удалить остаток списка
-        THEN \ словари кончились, поиск не удался
-    2R> 2DROP \ удалить имя
-    CurVoc @
-    ;
-[WITH?] VOC-NAME.
-: FindVoc. ( adr u -- ) \ найти слово и напечатать имя словаря, где найдено
-    FindVoc ?DUP IF VOC-NAME. ELSE ." Не найдено." THEN
-    ;
-[THEN]
 : 3DUP ( a b c -- a b c a b c )
     >R 2DUP R@ -ROT R> ;
 : COUNTER: ( n "name" -- ) \ создать счетчик с именем name и начальным значением n

@@ -8,13 +8,12 @@ REQUIRE toolbox  toolbox.f
 REQUIRE langASM langASM.f 
 S" ARMv6-Mset.f" INCLUDED
 
-
+\ нужен пакет gcc-arm-none-eabi
+\ команда установки: sudo apt install gcc-arm-none-eabi
 #def as sh arm-none-eabi-as -o tst.o tst.s -g
 #def da sh arm-none-eabi-objdump -d tst.o 
 
 CASE-INS ON
 
 
-: aa dup 8 < if . 8 else -100 throw then ;
-: bb ['] aa catch -100 = if ." меньше" then ;
 S" tsts.f" INCLUDED
