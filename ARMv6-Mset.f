@@ -13,14 +13,15 @@
 \ sjjii - кодирование смещения относительно PC в вид  s:J1:J2:imm10:imm11:0
 \ --
 \                                                                                  NZCVQ 
-Assm: ADCS Rd,Rm               Encod: 0100000101mmmddd                     Flags: NZCV     Cycles: 1       Action: Rd := Rd + Rm + C-bit                           Notes:  
-Assm: ADDS Rdn,imm             Encod: 00110dddiiiiiiii                     Flags: NZCV     Cycles: 1       Action: Rd := Rd + imm8                                 Notes: imm8 range 0-255
-Assm: ADDS Rd,Rn,imm          Encod: 0001110iiinnnddd                     Flags: NZCV     Cycles: 1       Action: Rd := Rn + imm3                                 Notes: imm3 range 0-7
-Assm: ADDS Rd,Rnd,Rm          Encod: 0001100mmmnnnddd                     Flags: NZCV     Cycles: 1       Action: Rd := Rn + Rm                                   Notes: 
-Assm: ADD  Rdn,Rm              Encod: 01000100dmmmmddd                                     Cycles: 1       Action: Rd := Rd + Rm                                   Notes: 
-Assm: ADD  {PC} PC,Rm         Encod: 010001001mmmm111                                     Cycles: 3       Action: Pc := PC + Rm                                   Notes: 
-Assm: ADD  Rd, SP,imm!4        Encod: 10101dddiiiiiiii                                     Cycles: 1       Action: Rd := SP + imm8*4                               Notes: imm8*4 range 0-1020 (word-aligned)         
-Assm: ADD  {SP} SP,imm!4      Encod: 101100000iiiiiii                                     Cycles: 1       Action: SP := SP + imm7*4                               Notes: imm7*4 range 0-508 (word-aligned)
+\    [    OperandsHandlers      ]
+Assm: ADCS Rd, Rm               Encod: 0100000101mmmddd                     Flags: NZCV     Cycles: 1       Action: Rd := Rd + Rm + C-bit                           Notes:  
+Assm: ADDS Rdn, imm             Encod: 00110dddiiiiiiii                     Flags: NZCV     Cycles: 1       Action: Rd := Rd + imm8                                 Notes: imm8 range 0-255
+Assm: AdDS Rd, Rn, imm          Encod: 0001110iiinnnddd                     Flags: NZCV     Cycles: 1       Action: Rd := Rn + imm3                                 Notes: imm3 range 0-7
+Assm: ADDS Rd, Rnd, Rm          Encod: 0001100mmmnnnddd                     Flags: NZCV     Cycles: 1       Action: Rd := Rn + Rm                                   Notes: 
+Assm: ADD  Rdn, Rm              Encod: 01000100dmmmmddd                                     Cycles: 1       Action: Rd := Rd + Rm                                   Notes: 
+Assm: ADD  {PC}, PC, Rm         Encod: 010001001mmmm111                                     Cycles: 3       Action: Pc := PC + Rm                                   Notes: 
+Assm: ADD  Rd, SP, imm!4        Encod: 10101dddiiiiiiii                                     Cycles: 1       Action: Rd := SP + imm8*4                               Notes: imm8*4 range 0-1020 (word-aligned)         
+Assm: ADD  {SP}, SP, imm!4      Encod: 101100000iiiiiii                                     Cycles: 1       Action: SP := SP + imm7*4                               Notes: imm7*4 range 0-508 (word-aligned)
 Assm: ADD  Rd, PC, imm!4        Encod: 10100dddiiiiiiii                                     Cycles: 1       Action: Rd := PC + imm8*4                               Notes: imm8*4 range 0-1020 (word-aligned)
 \ Assm: ADR  Rd, +label           Encod: 10100dddiiiiiiii                                     Cycles: 1       Action: Rd := PC + imm8*4                               Notes: imm8*4 range 0-1020 (word-aligned)
 Assm: ANDS Rdn, Rm              Encod: 0100000000mmmddd                     Flags: NZ       Cycles: 1       Action: Rd := Rd AND Rm                                 Notes: 
@@ -34,9 +35,9 @@ Assm: BKPT imm                  Encod: 10111110iiiiiiii                         
 Assm: BLX Rm                    Encod: 010001111mmmm000                                     Cycles: 3       Action: LR := PC - 2 +1, PC := Rm                       Notes: Rm=adr+1
 Assm: BX  Rm                    Encod: 010001110mmmm000                                     Cycles: 3       Action: PC := Rm                                        Notes: Rm=adr+1
 Assm: CMN Rn, Rm                Encod: 0100001011mmmnnn                     Flags: NZCV     Cycles: 1       Action: APSR flags on Rn + Rm                           Notes:
-Assm: CMP Rn,imm               Encod: 00101nnniiiiiiii                     Flags: NZCV     Cycles: 1       Action: APSR flags on Rn - imm                          Notes: imm8 range 0-255
-Assm: CMP Rn,Rm                Encod: 0100001010mmmnnn                     Flags: NZCV     Cycles: 1       Action: APSR flags on Rn - Rm                           Notes: Lo to Lo
-Assm: CMP Rn,Rm                Encod: 01000101nmmmmnnn                     Flags: NZCV     Cycles: 1       Action: APSR flags on Rn - Rm                           Notes: All to All
+Assm: CMP Rn, imm               Encod: 00101nnniiiiiiii                     Flags: NZCV     Cycles: 1       Action: APSR flags on Rn - imm                          Notes: imm8 range 0-255
+Assm: CMP Rn, Rm                Encod: 0100001010mmmnnn                     Flags: NZCV     Cycles: 1       Action: APSR flags on Rn - Rm                           Notes: Lo to Lo
+Assm: CMP Rn, Rm                Encod: 01000101nmmmmnnn                     Flags: NZCV     Cycles: 1       Action: APSR flags on Rn - Rm                           Notes: All to All
 \ Assm: CPSIE i                   Encod: 1011011001100010                                     Cycles: 1       Action: PRIMASK.PM := 0                                 Notes: i -> PRIMASK is affected
 \ Assm: CPSID i                   Encod: 1011011001110010                                     Cycles: 1       Action: PRIMASK.PM := 1                                 Notes: i -> PRIMASK is affected
 Assm: DMB                       Encod: 11110011101111111000111101011111                     Cycles: 4       Action:                                                 Notes: memory barrier
@@ -103,7 +104,7 @@ Assm: SEV                       Encod: 1011111101000000                         
 Assm: SUBS Rd, Rn, imm          Encod: 0001111iiinnnddd                     Flags: NZCV     Cycles: 1       Action: Rd := Rn – imm3                                 Notes: imm3 range 0-7 
 Assm: SUBS Rdn, imm             Encod: 00111dddiiiiiiii                     Flags: NZCV     Cycles: 1       Action: Rd := Rd – imm8                                 Notes: imm8 range 0-255 
 Assm: SUBS Rd, Rn, Rm           Encod: 0001101mmmnnnddd                     Flags: NZCV     Cycles: 1       Action: Rd := Rn – Rm                                   Notes: 
-Assm: SUB  {SP,} SP, imm!4      Encod: 101100001iiiiiii                                     Cycles: 1       Action: SP := SP – imm7*4                               Notes: imm7*4 range 0-508 (word-aligned)
+Assm: SUB  {SP}, SP, imm!4      Encod: 101100001iiiiiii                                     Cycles: 1       Action: SP := SP – imm7*4                               Notes: imm7*4 range 0-508 (word-aligned)
 Assm: SVC imm                   Encod: 11011111iiiiiiii                                     Cycles: -       Action: Send event                                      Notes: 
 Assm: SXTB Rd, Rm               Encod: 1011001001mmmddd                                     Cycles: 1       Action: Rd[31:0] := SignExtend(Rm[7:0])                 Notes: 
 Assm: SXTH Rd, Rm               Encod: 1011001000mmmddd                                     Cycles: 1       Action: Rd[31:0] := SignExtend(Rm[15:0])                Notes: 

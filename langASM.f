@@ -114,7 +114,6 @@ ASM? ON
     REPEAT 2DROP R> DROP
     ;
 
-
 : >enc ( x mask --) \ вложить x в текущий код команды
     disperse enc @ OR enc !
     ;  
@@ -180,34 +179,35 @@ ASM? ON
     ;
 
 
+MODULE: OperandsHandlers
 \ ############ Обработчики операндов ###########################
 
 \ обработчик|-тэг-|--операнд-----|-синоним|
-' <Reg>     CHAR d 2CONSTANT Rd  \ : Rd, Rd ;
-' <Reg>     CHAR n 2CONSTANT Rn  \ : Rn, Rn ;
-' <Reg>     CHAR m 2CONSTANT Rm  \ : Rm, Rm ;
-' <Reg>     CHAR t 2CONSTANT Rt  \ : Rt, Rt ;
+' <Reg>     CHAR d 2CONSTANT Rd  
+' <Reg>     CHAR n 2CONSTANT Rn  
+' <Reg>     CHAR m 2CONSTANT Rm  
+' <Reg>     CHAR t 2CONSTANT Rt  
 ' <Imm>     CHAR i 2CONSTANT imm
 :NONAME ( {[r',x']} [r,x] mask -- [r',x']) >R need_two R> <Reg> ;
     \ в отсутствии Rd ([r',x']), Rn ([r,x]) оставит свой дубликат ([r,x]=[r',x'])
-            CHAR n 2CONSTANT Rnd \ : Rnd, Rnd ;  \  
+            CHAR n 2CONSTANT Rnd   
 :NONAME ( {[r,x]} [r,x] mask --) >R maybe_duplex R> <Reg> ; 
             CHAR d 2CONSTANT Rdn  \ : Rdn, Rdn ;
-:NONAME (  PC mask --)   DROP PC assert= ;
-            CHAR c 2CONSTANT PC  
 :NONAME ( {PC,} mask --) DROP itisReg? IF PC assert= THEN ;
             CHAR * 2CONSTANT {PC}
-:NONAME (  SP mask --)   DROP SP assert= ;
-            CHAR p 2CONSTANT SP  
+:NONAME (  PC mask --)   DROP PC assert= ;
+            CHAR c 2CONSTANT PC  
 :NONAME ( {SP,} mask --) DROP itisReg? IF SP assert= THEN ;
             CHAR * 2CONSTANT {SP} 
+:NONAME (  SP mask --)   DROP SP assert= ;
+            CHAR p 2CONSTANT SP  
 :NONAME ( imm!4 mask --) 
     >R DUP 3 AND IF errImm!4 THROW ELSE 4 / THEN R> <Imm> ;
             CHAR i 2CONSTANT imm!4
 :NONAME ( imm!2 mask --) 
     >R DUP 1 AND IF errImm!2 THROW ELSE 2/  THEN R> <Imm> ;
             CHAR i 2CONSTANT imm!2
-
+;MODULE
 \ ===================================================================
 
 : +listExcepTag ( adr u -- adr' u') \ добавить к строке тэги исключения
@@ -304,6 +304,7 @@ DROP
     ;
 
 S"     " DROP @ CONSTANT 4BL \ 4 пробела как число 
+
 : phrase ( <str> -- adr u)  \ выделить из входного потока фразу
     \ фраза: последовательность слов разделенных не более чем 3 пробелами
     SOURCE >IN @ /STRING SWAP >R \ R: адрес начала строки
@@ -312,7 +313,7 @@ S"     " DROP @ CONSTANT 4BL \ 4 пробела как число
     NIP R> SWAP
     ;
 
-: 4BLparse ( <str> -- adr u) \ взять из входного потока фразу
+: 4BLparse ( <str> -- adr u) \ изъять из входного потока фразу
     \ фраза: последовательность слов разделенных не более чем 3 пробелами
     phrase >IN @ OVER + >IN ! \ отрезать фразу
     ;
@@ -320,12 +321,12 @@ S"     " DROP @ CONSTANT 4BL \ 4 пробела как число
 \ структура мнемоники
 \ alt   - указатель на вариант операндов/енкода для ассемблирования
 \ c-str - мнемоника, строка со счетчиком
-
-: Assm: ( "mnemonics" -- -> adr u mnemo ) \ создает или находит структуру 
+: Assm: ( "mnemonics" -- -> mnemo ) \ создает или находит структуру 
     \ ассемблерной команды <mnemonics>
     \ возвращает ссылку на неё
     \ и её фразу
-    phrase
+    ALSO OperandsHandlers \ подключить обработчики операндов
+    phrase >S \ запомнить фразу команды в строковом стеке
     >IN @  BL PARSE 2>R \ R: adr u - мнемоника во входном буфере
     2R@ UPPERCASE-W \ ВСЕГДА В ВЕРХНЕМ РЕГИСТРЕ
     2R@ GET-CURRENT SEARCH-WORDLIST  
@@ -370,7 +371,7 @@ S"     " DROP @ CONSTANT 4BL \ 4 пробела как число
     HERE encodes @ .help net+ 
     ;
 
-: structEncode ( adr u mnem n*[xt,teg] adr2 u2 -- mnem) \ создать структуру кодировщика команды
+: structEncode ( mnem n*[xt,teg] adr2 u2 -- mnem) \ создать структуру кодировщика команды
     \ по шаблону adr2 u2
     2>R
     2R@ cliche&mask , ,
@@ -378,12 +379,13 @@ S"     " DROP @ CONSTANT 4BL \ 4 пробела как число
         \ потребление операндов
     WHILE DUP , 2R@ ROT tagMask , , REPEAT
     2R> 2DROP
-    0 , DUP , -ROT 
-    netHelp+ 0 , [CHAR] P , str! ALIGN \ запомнить фразу команды
+    0 , DUP ,  
+    netHelp+ 0 , [CHAR] P , S> str! ALIGN \ запомнить фразу команды
     ;
     
 : Encod: ( mnem n*[xt,teg] "encode" --  ) \ строит структуру кодирования 
 \ потребляет операнды и мнемонику со стека
+    PREVIOUS \ отключить обработчики операндов
     HERE 0 , encodes +net \ включиться в цепочку кодировщиков (в начало)
     0 , \ указатель на альтернативный кодировщик
     0 , \ помощники
