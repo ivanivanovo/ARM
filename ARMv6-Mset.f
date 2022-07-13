@@ -38,8 +38,8 @@ Assm: CMN Rn, Rm                Encod: 0100001011mmmnnn                     Flag
 Assm: CMP Rn, imm               Encod: 00101nnniiiiiiii                     Flags: NZCV     Cycles: 1       Action: APSR flags on Rn - imm                          Notes: imm8 range 0-255
 Assm: CMP Rn, Rm                Encod: 0100001010mmmnnn                     Flags: NZCV     Cycles: 1       Action: APSR flags on Rn - Rm                           Notes: Lo to Lo
 Assm: CMP Rn, Rm                Encod: 01000101nmmmmnnn                     Flags: NZCV     Cycles: 1       Action: APSR flags on Rn - Rm                           Notes: All to All
-\ Assm: CPSIE i                   Encod: 1011011001100010                                     Cycles: 1       Action: PRIMASK.PM := 0                                 Notes: i -> PRIMASK is affected
-\ Assm: CPSID i                   Encod: 1011011001110010                                     Cycles: 1       Action: PRIMASK.PM := 1                                 Notes: i -> PRIMASK is affected
+Assm: CPSIE i                   Encod: 1011011001100010                                     Cycles: 1       Action: PRIMASK.PM := 0                                 Notes: i -> PRIMASK is affected
+Assm: CPSID i                   Encod: 1011011001110010                                     Cycles: 1       Action: PRIMASK.PM := 1                                 Notes: i -> PRIMASK is affected
 Assm: DMB                       Encod: 11110011101111111000111101011111                     Cycles: 4       Action:                                                 Notes: memory barrier
 Assm: DSB                       Encod: 11110011101111111000111101001111                     Cycles: 4       Action:                                                 Notes: acts as a special kind of memory barrier
 Assm: EORS Rdn, Rm              Encod: 0100000001mmmddd                     Flags: NZ       Cycles: 1       Action: Rd := Rd EOR Rm                                 Notes: 

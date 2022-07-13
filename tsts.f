@@ -23,6 +23,7 @@
  C[ add r8 PC ]C enc @ .HEX CR
  C[ add SP SP SP ]C enc @ .HEX CR
  C[ cmp r1 r2 ]C enc @ .bin CR
+ C[ CPSIE i ]C enc @ .HEX CR
 helpasm cmp
 \EOF \ локальные отладочные тесты
 

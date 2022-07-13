@@ -45,6 +45,7 @@ ErrNo err: errOddOp  S" лишнее операнды или их нехватк
 ErrNo err: errImm!2  S" нечетное число "
 ErrNo err: errImm!4  S" невыровненное число"
 ErrNo err: err+Label S" метка должна быть только вперед"
+ErrNo err: errNoSym  S" неверный символ-аргумент"
 
 \ Condition number
 \    cond                Mnemonic  Meaning                         Condition flags
@@ -155,6 +156,11 @@ ASM? ON
     DIS> ( mask -- x) enc>
     ; 
 
+\ : <label> \ метка
+\     ASM> ( adr mask -- adr-PC) SWAP enc - SWAP >enc
+\     DIS> ( mask -- c-adr u ) enc> LabelName
+\     ;
+
 : inStr? ( x adr u -- f) \ x есть в строке adr u?
     ROT FALSE 2SWAP OVER + SWAP
     DO ( x f ) OVER I C@ = IF DROP TRUE LEAVE THEN
@@ -177,6 +183,26 @@ ASM? ON
 
 : assert= ( [r,x] [r,x] --) D= NOT errEncode AND THROW 
     ;
+
+0 \ структура операнда
+CELL -- .tag
+CELL -- .maskOp
+CELL -- .xtOp
+CONSTANT structOp
+
+0 \ структура кодировщика команды
+CELL -- .link     \  поле связи цепи всех кодировщиков
+CELL -- .alt      \  поле связи цепи альтернатив
+CELL -- .help     \  помощники команды
+CELL -- .cliche   \  клише команды
+CELL -- .mask     \  маска команды
+CELL -- .preXt   \  токен предварительного исполнения
+structOp -- .ops  \  операнд
+\  ...            \  другие операнды
+\ CELL - 0        \  тэг мнемоники или конец операндов
+\ CELL - adrMnemo \  адрес структуры мнемоники
+\    x - phrase   \  фраза команды  
+DROP
 
 
 MODULE: OperandsHandlers
@@ -207,31 +233,16 @@ MODULE: OperandsHandlers
 :NONAME ( imm!2 mask --) 
     >R DUP 1 AND IF errImm!2 THROW ELSE 2/  THEN R> <Imm> ;
             CHAR i 2CONSTANT imm!2
+: <I> ( <c> --) \ проверка символа "i"
+    BL PARSE DROP C@ CHAR-UPPERCASE [CHAR] I = NOT IF errNoSym THROW THEN ;
+: i ( --)
+    ['] <I> encodes @ .preXt ! ;
 ;MODULE
 \ ===================================================================
 
 : +listExcepTag ( adr u -- adr' u') \ добавить к строке тэги исключения
     \ строка adr u не изменяется, изменяется её временная копия
     >S S" cp*" +>S S> ; 
-
-0 \ структура операнда
-CELL -- .tag
-CELL -- .maskOp
-CELL -- .xtOp
-CONSTANT structOp
-
-0 \ структура кодировщика команды
-CELL -- .link     \  поле связи цепи всех кодировщиков
-CELL -- .alt      \  поле связи цепи альтернатив
-CELL -- .help     \  помощники команды
-CELL -- .cliche   \  клише команды
-CELL -- .mask     \  маска команды
-structOp -- .ops  \  операнд
-\  ...            \  другие операнды
-\ CELL - 0        \  тэг мнемоники или конец операндов
-\ CELL - adrMnemo \  адрес структуры мнемоники
-\    x - phrase   \  фраза команды  
-DROP
 
 : execOp ( j*x adr-ops -- i*x) \ выполнить обработчики операндов
     BEGIN  DUP @
@@ -274,6 +285,10 @@ DROP
 
 : asmcoder ( j*x adr-alt -- i*x ) 
     \ на стеке лежат операнды предыдущего оператора/команды
+    DUP \ не 0
+    IF \ предисполнитель
+        DUP @ .preXt @ EXECUTE
+    THEN
     \ заменить оператор на предыдущий,
     operator @ SWAP operator ! \ а текущий будет ждать своих операндов
     ?DUP 
@@ -371,10 +386,12 @@ S"     " DROP @ CONSTANT 4BL \ 4 пробела как число
     HERE encodes @ .help net+ 
     ;
 
+: noPreExt ; \ слово-заглушка
 : structEncode ( mnem n*[xt,teg] adr2 u2 -- mnem) \ создать структуру кодировщика команды
     \ по шаблону adr2 u2
     2>R
-    2R@ cliche&mask , ,
+    2R@ cliche&mask , , 
+    ['] noPreExt , \ нету предИсполнителя
     BEGIN DUP 2R@ +listExcepTag inStr? 
         \ потребление операндов
     WHILE DUP , 2R@ ROT tagMask , , REPEAT
@@ -458,9 +475,10 @@ CHAR N helper: Notes:  ( <str> --) \ дополнительные замечан
     tab> DUP       ." link=  " @ .HEX                CR 
     tab> DUP .alt  ." alt=   " @ .HEX                CR 
     tab> DUP .help ." hlp=   " @ .HEX                CR 
-    tab> ." ---------------------------------------" CR 
+    tab> ." ----------------------------------------" CR 
     tab> DUP .cliche ." clishe=" @ 32bit.            CR 
     tab> DUP .mask   ." mask=  " @ 32bit.            CR 
+    tab> DUP .preXt  ." preXt= " @ .HEX              CR
          DUP .ops
          BEGIN DUP  @ WHILE
     tab>     DUP   ." tag=   " @ EMIT                CR 

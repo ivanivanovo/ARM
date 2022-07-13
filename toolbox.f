@@ -237,7 +237,9 @@ WARNING @ WARNING OFF
   LOOP  DROP
 ;
 
-: UPPERCASE ( addr1 u1 -- ) \ работает с однобайтными символами
+: UPPERCASE ( addr1 u1 -- ) \ перевести все символы строки addr1 u1 в верхний регистр
+  \ строка меняется "на месте"
+  \ работает с однобайтными символами
   OVER + SWAP ?DO
     I C@ CHAR-UPPERCASE I C!
   LOOP ;
