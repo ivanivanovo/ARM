@@ -13,6 +13,8 @@ S" ARMv6-Mset.f" INCLUDED
 #def as sh arm-none-eabi-as -o tst.o tst.s -g
 #def da sh arm-none-eabi-objdump -d tst.o 
 
+S" segments.f" INCLUDED
+
 CASE-INS ON
 
 S" tsts.f" INCLUDED

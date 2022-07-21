@@ -234,7 +234,7 @@ MODULE: OperandsHandlers
     >R DUP 1 AND IF errImm!2 THROW ELSE 2/  THEN R> <Imm> ;
             CHAR i 2CONSTANT imm!2
 : <I> ( <c> --) \ проверка символа "i"
-    BL PARSE DROP C@ CHAR-UPPERCASE [CHAR] I = NOT IF errNoSym THROW THEN ;
+    BL WORD COUNT DROP C@ CHAR-UPPERCASE [CHAR] I = NOT IF errNoSym THROW THEN ;
 : i ( --)
     ['] <I> encodes @ .preXt ! ;
 ;MODULE
@@ -341,8 +341,8 @@ S"     " DROP @ CONSTANT 4BL \ 4 пробела как число
     \ возвращает ссылку на неё
     \ и её фразу
     ALSO OperandsHandlers \ подключить обработчики операндов
-    phrase >S \ запомнить фразу команды в строковом стеке
-    >IN @  BL PARSE 2>R \ R: adr u - мнемоника во входном буфере
+    phrase -BL >S \ запомнить фразу команды в строковом стеке
+    >IN @  BL WORD COUNT 2>R \ R: adr u - мнемоника во входном буфере
     2R@ UPPERCASE-W \ ВСЕГДА В ВЕРХНЕМ РЕГИСТРЕ
     2R@ GET-CURRENT SEARCH-WORDLIST  
     IF  \  есть такое, 
@@ -406,7 +406,7 @@ S"     " DROP @ CONSTANT 4BL \ 4 пробела как число
     HERE 0 , encodes +net \ включиться в цепочку кодировщиков (в начало)
     0 , \ указатель на альтернативный кодировщик
     0 , \ помощники
-    BL PARSE structEncode \ создать структуру
+    BL WORD COUNT structEncode \ создать структуру
     \ и включить ее в конец цепочки альтернатив
     BEGIN DUP @ WHILE @ CELL+ REPEAT encodes @ SWAP !
     ;
