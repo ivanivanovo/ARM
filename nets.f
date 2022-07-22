@@ -9,9 +9,15 @@
     ;
 
 : net+ ( adr net -- ) \ включить adr в конец цепочки net
-    \ net-->a-->b-->0 
-    \      [1] [2] [3]
-    \ net-->a-->b-->adr-->0 
-    \      [1] [2] [3]   [4]
-    BEGIN DUP @ WHILE @ REPEAT !
+    DUP @ 
+    IF \ начало уже есть
+        \ net-->a-->b-->0 
+        \      [1] [2] [3]
+        \ net-->a-->b-->adr-->0 
+        \      [1] [2] [3]   [4]
+        BEGIN DUP @ WHILE @ REPEAT !
+    ELSE \ цепочка пуста
+        \ net-->adr-->0 
+        +net \ включить в начало
+    THEN
     ;
