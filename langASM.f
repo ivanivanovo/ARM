@@ -18,7 +18,7 @@ VARIABLE operator 0 operator ! \ текущий оператор (команда
 VARIABLE lastDepth \ глубина стека перед отсрочкой оператора
 VARIABLE lastErrAsm \ код последней ошибки ассемблера
 VARIABLE enc \ текущий код команды
-VARIABLE encodes 0 encodes ! \ кончик цепочки енкодов
+net: encodes \ кончик цепочки енкодов
 
 : replaceBytes ( adr u b1 b2 -- adr u i) \ заменить в строке adr u все быйты b1 на b2
     \ i -количество замен
@@ -386,12 +386,12 @@ S"     " DROP @ CONSTANT 4BL \ 4 пробела как число
     HERE encodes @ .help net+ 
     ;
 
-: noPreExt ; \ слово-заглушка
+: fuflo ; \ слово-заглушка
 : structEncode ( mnem n*[xt,teg] adr2 u2 -- mnem) \ создать структуру кодировщика команды
     \ по шаблону adr2 u2
     2>R
     2R@ cliche&mask , , 
-    ['] noPreExt , \ нету предИсполнителя
+    ['] fuflo , \ нету предИсполнителя
     BEGIN DUP 2R@ +listExcepTag inStr? 
         \ потребление операндов
     WHILE DUP , 2R@ ROT tagMask , , REPEAT

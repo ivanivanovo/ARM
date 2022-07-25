@@ -34,7 +34,7 @@ MODULE: segments
 \ 0 <=      finger         <=       wender           <= lim
 EXPORT
     0 VALUE SEG \ ссылка на структуру текущего сегмента
-    VARIABLE SEGnet 0 SEGnet ! \ цепочка сегментов
+    net: SEGnet \ цепочка сегментов
 DEFINITIONS
     : resize? ( finger' --) \ нужно ли и возможно ли изменение размера сегмента?
         SEG .size @ OVER <
@@ -73,6 +73,7 @@ DEFINITIONS
 
     : .seg ( seg --) \ показать структуру сегмента seg
         >R
+        SEG R@ = IF CR ." == Текущий сегмент == " THEN
         CR ." Имя:     "   R@ .name TYPE 
         CR ." Next:    "   R@ .next   @  DUP IF .name TYPE ELSE . THEN 
         CR ." Адрес:   0x" R@ .adr    @  .HEX
@@ -102,20 +103,12 @@ EXPORT
         ;
 
     : ?seg ( --) \ показать структуру текущего сегмента
-        SEG IF 
-            CR ." == Текущий сегмент == "  
-            SEG .seg
-        THEN
+        SEG IF SEG .seg THEN
         ;
 
-    : lsSEG ( ) \ вылать список всех сегментов
+    : lsSEG ( ) \ выдать список всех сегментов
         SEGnet @ 
-        IF SEGnet 
-            BEGIN DUP @ 
-            WHILE @ 
-                DUP SEG = IF ?seg ELSE DUP .seg THEN 
-            REPEAT 
-            DROP
+        IF ['] .seg foreach SEGnet
         THEN
         ;
 
@@ -169,7 +162,7 @@ EXPORT
 
 ;MODULE
 
-\EOF
+\ EOF
 \ ======== ТЕСТЫ И ПРИМЕРЫ =====================================================
 0x08000000 30  22 createSeg: ROM-SEG
 ROM-SEG TO SEG
