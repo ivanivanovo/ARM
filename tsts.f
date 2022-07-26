@@ -24,7 +24,11 @@
  C[ add SP SP SP ]C enc @ .HEX CR
  C[ cmp r1 r2 ]C enc @ .bin CR
  C[ CPSIE i ]C enc @ .HEX CR
+ C[ DMB ]C enc @ .UHEX CR
 helpasm cmp
+CR 
+\ ' ADD shwCmd
+' DMB shwCmd
 \EOF \ локальные отладочные тесты
 
 

@@ -98,7 +98,7 @@ EXPORT
             R> HERE .size !
             HERE .lim !
             HERE .base !
-        stuctSEG ALLOT
+            stuctSEG ALLOT
         R> >IN ! BL WORD COUNT str!
         ;
 
@@ -162,7 +162,7 @@ EXPORT
 
 ;MODULE
 
-\ EOF
+\EOF
 \ ======== ТЕСТЫ И ПРИМЕРЫ =====================================================
 0x08000000 30  22 createSeg: ROM-SEG
 ROM-SEG TO SEG
