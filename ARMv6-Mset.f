@@ -16,7 +16,7 @@
 \    [    OperandsHandlers      ]
 Assm: ADCS Rd, Rm               Encod: 0100000101mmmddd                     Flags: NZCV     Cycles: 1       Action: Rd := Rd + Rm + C-bit                           Notes:  
 Assm: ADDS Rdn, imm             Encod: 00110dddiiiiiiii                     Flags: NZCV     Cycles: 1       Action: Rd := Rd + imm8                                 Notes: imm8 range 0-255
-Assm: AdDS Rd, Rn, imm          Encod: 0001110iiinnnddd                     Flags: NZCV     Cycles: 1       Action: Rd := Rn + imm3                                 Notes: imm3 range 0-7
+Assm: ADDS Rd, Rn, imm          Encod: 0001110iiinnnddd                     Flags: NZCV     Cycles: 1       Action: Rd := Rn + imm3                                 Notes: imm3 range 0-7
 Assm: ADDS Rd, Rnd, Rm          Encod: 0001100mmmnnnddd                     Flags: NZCV     Cycles: 1       Action: Rd := Rn + Rm                                   Notes: 
 Assm: ADD  Rdn, Rm              Encod: 01000100dmmmmddd                                     Cycles: 1       Action: Rd := Rd + Rm                                   Notes: 
 Assm: ADD  {PC}, PC, Rm         Encod: 010001001mmmm111                                     Cycles: 3       Action: Pc := PC + Rm                                   Notes: 

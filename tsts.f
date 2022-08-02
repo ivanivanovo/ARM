@@ -9,6 +9,7 @@
 \ asm? on SP bin> 10111000 <reg> enc @ .bin CR
 \ asm? off bin> 10111000 <reg> type CR
 
+\EOF \ локальные отладочные тесты
  C[ adcs R3 r7 ]C enc @ .HEX CR
  C[ adds R1 r1 ]C enc @ .HEX CR
  C[ adds R1 r1 20 ]C enc @ .HEX CR
@@ -29,7 +30,6 @@ helpasm cmp
 CR 
 \ ' ADD shwCmd
 ' DMB shwCmd
-\EOF \ локальные отладочные тесты
 
 
 

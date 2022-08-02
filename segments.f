@@ -13,7 +13,8 @@
 \ пустое место в сегменте, так что читать из сегмента не получится.
 \ Перед чтением из сегмента, указатель должен быть установлен на нужное место (ORG).
 
-REQUIRE net+ nets.f \ для свзывания сегментов в цепь
+REQUIRE chain+ chains.f \ для свзывания сегментов в цепь
+REQUIRE alloc  heap.f   \ для обращения к куче
 
 MODULE: segments
 
@@ -21,21 +22,25 @@ MODULE: segments
     0
     CELL -- .next   \ ссылка на следующий сегмент
     CELL -- .adr    \ адрес выделенной памяти в компе
+    CELL -- .name   \ --> на строку со счетчиком
     CELL -- .base   \ начало сегмента в памяти чипа
     CELL -- .size   \ текущий размер выделенной памяти
     CELL -- .lim    \ ограничение размера для выделенной памяти
     CELL -- .finger \ свободный указатель, смещение от начала сегмента
     CELL -- .wender \ указатель конца записи, смещение от начала сегмента
     CONSTANT stuctSEG
-    ( name - str)      \ строка со счетчиком примыкает с структуре
-    : .name ( adr -- c-adr-name u)
-        stuctSEG + COUNT ;
+
 \ 0 <= свободный указатель <= указатель конца записи <= максимальный размер.
 \ 0 <=      finger         <=       wender           <= lim
 EXPORT
     0 VALUE SEG \ ссылка на структуру текущего сегмента
-    net: SEGnet \ цепочка сегментов
+    chain: SEGnet \ цепочка сегментов
 DEFINITIONS
+    SEGnet @ CONSTANT end \ признак конца цепочки
+    : name. ( seg --) \ напечатать имя сегмента
+        .name @ COUNT TYPE
+        ;
+
     : resize? ( finger' --) \ нужно ли и возможно ли изменение размера сегмента?
         SEG .size @ OVER <
         \ попытка расширить сегмент
@@ -71,21 +76,23 @@ DEFINITIONS
         SEG .adr @ + 
         ;
 
-    : .seg ( seg --) \ показать структуру сегмента seg
+    : (.seg) ( seg -- seg)
         >R
         SEG R@ = IF CR ." == Текущий сегмент == " THEN
-        CR ." Имя:     "   R@ .name TYPE 
-        CR ." Next:    "   R@ .next   @  DUP IF .name TYPE ELSE . THEN 
-        CR ." Адрес:   0x" R@ .adr    @  .HEX
-        CR ." База:    0x" R@ .base   @  .HEX
+        CR ." Имя:     "   R@ name. 
+        CR ." Next:    "   R@ .next   @ DUP end <> IF name. ELSE DROP THEN 
+        CR ." Адрес:   0x" R@ .adr    @ .HEX
+        CR ." База:    0x" R@ .base   @ .HEX
         CR ." Размер:  "   R@ .size   @ .
         CR ." Лимит:   "   R@ .lim    @ .
         CR ." .finger: "   R@ .finger @ .
         CR ." .wender: "   R@ .wender @ .
-        CR R> DROP
+        CR R> 
         ;
-
-
+    : .seg ( seg --) \ показать структуру сегмента seg
+        (.seg) DROP
+        ;
+       
 EXPORT
     \ max size createSeg: ROM-SEG
     : createSeg: ( base limit size <name> --)
@@ -93,22 +100,23 @@ EXPORT
         >IN @ >R
             CREATE DUP >R ALLOCATE THROW
             HERE stuctSEG 0 FILL
-            HERE .next SEGnet net+ \ в цепочку
+            HERE .next SEGnet chain+ \ в цепочку
             HERE .adr !
             R> HERE .size !
             HERE .lim !
             HERE .base !
+        R> >IN ! BL WORD COUNT str>
+            HERE .name !
             stuctSEG ALLOT
-        R> >IN ! BL WORD COUNT str!
         ;
 
     : ?seg ( --) \ показать структуру текущего сегмента
         SEG IF SEG .seg THEN
         ;
 
-    : lsSEG ( ) \ выдать список всех сегментов
+    : lsSEG ( -- ) \ выдать список всех сегментов
         SEGnet @ 
-        IF ['] .seg foreach SEGnet
+        IF SEGnet ['] (.seg) extEach DROP
         THEN
         ;
 
@@ -162,8 +170,7 @@ EXPORT
 
 ;MODULE
 
-\EOF
-\ ======== ТЕСТЫ И ПРИМЕРЫ =====================================================
+\EOF \ ======== ТЕСТЫ И ПРИМЕРЫ =====================================================
 0x08000000 30  22 createSeg: ROM-SEG
 ROM-SEG TO SEG
 ROM-SEG 7 CELLS DUMP 

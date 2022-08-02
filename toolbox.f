@@ -73,6 +73,8 @@ REQUIRE HEX[ bases.f \ bases
     TRUE  SWAP ! ; 
 [THEN]
 
+VARIABLE tracer  tracer OFF
+
 : -Sym ( adr u sym-- adr' u') \ убрать из строки ведущие символы
     1>V 
     2DUP OVER + SWAP 
