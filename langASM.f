@@ -194,7 +194,7 @@ CONSTANT structMnem
 0 \ структура операнда
 CELL -- .oLnk       \ поле связи цепи всех операндов
 CELL -- .oTag       \ метка операнда
-CELL -- .oMask      \ макска операнда    
+CELL -- .oMask      \ маска операнда    
 CELL -- .oXt        \ обработчик операнда
 CONSTANT structOp
 
@@ -508,7 +508,7 @@ CHAR N helper: Notes:  ( <str> --) \ дополнительные замечан
 : helpAsm ( <name> --) \ показать справку по команде <name>
     CR BL WORD FIND
     IF  >BODY @ ( mnen)
-        .mAlt 0 SWAP ['] extAhlp extEach 2DROP ?????????????????
+        .mAlt 0 SWAP ['] extAhlp extEach 2DROP
     ELSE DROP
     THEN
     ;
