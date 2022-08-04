@@ -2,7 +2,7 @@
 \ 
 REQUIRE toolbox         toolbox.f
 REQUIRE 2CONSTANT       lib/include/double.f
-REQUIRE +chain          chains.f
+REQUIRE chain:          chains.f
 REQUIRE err:            errorschain.f
 REQUIRE enqueueNOTFOUND nf-ext.f
 REQUIRE alloc           heap.f
@@ -187,20 +187,17 @@ ASM? ON
 
 \ структура мнемоники
 0
-CELL -- .mAlt \ ->указатель на вариант операндов/енкода для ассемблирования
+CELL -- .mAlt \ ->указатель на цепочку вариантов операндов/енкода для ассемблирования
 CELL -- .mStr \ ->указатель на мнемонику, строку со счетчиком
 CONSTANT structMnem 
 
 0 \ структура операнда
-CELL -- .oLnk       \ поле связи цепи всех операндов
 CELL -- .oTag       \ метка операнда
 CELL -- .oMask      \ маска операнда    
 CELL -- .oXt        \ обработчик операнда
 CONSTANT structOp
 
 0 \ структура кодировщика варианта команды
-CELL -- .eLnk       \ поле связи цепи всех кодировщиков
-CELL -- .eAlt       \ поле связи цепи альтернатив
 CELL -- .eHlp       \ ->цепочка, помощники команды
 CELL -- .eCliche    \ клише команды
 CELL -- .eMask      \ маска команды
@@ -248,7 +245,7 @@ MODULE: OperandsHandlers
 : <I> ( <c> --) \ проверка символа "i"
     BL WORD COUNT DROP C@ CHAR-UPPERCASE [CHAR] I = NOT IF errNoSym THROW THEN ;
 : i ( --)
-    ['] <I> encodes @ .eXt ! ;
+    ['] <I> encodes @ first .eXt ! ;
 ;MODULE
 \ ===================================================================
 
@@ -256,17 +253,16 @@ MODULE: OperandsHandlers
     \ строка adr u не изменяется, изменяется её временная копия
     >S S" cp*" +>S S> ; 
 
-: execOp ( j*x adr-ops -- i*x) \ выполнить обработчики операндов
-    BEGIN  @ DUP 
-    WHILE  >R
-           R@ .oMask @ 
-           R@ .oXt @ EXECUTE 
-           R> .oLnk
-    REPEAT DROP
+: execOp ( j*x obj -- i*x f) \ выполнить обработчики операндов
+    >R
+        R@ .oMask @ 
+        R@ .oXt @ EXECUTE 
+    R> DROP
+    TRUE
     ; 
-: sacker ( j*x adr-alt --) \ упаковать операнды в код
+: sacker ( j*x obj --) \ упаковать операнды в код
     DUP .eCliche @ enc !
-    .eOps execOp
+    .eOps @ ['] execOp extEach
     \ проверить потребление операндов
     DEPTH lastDepth @ - IF errOddOp THROW THEN
     ;
@@ -298,25 +294,25 @@ MODULE: OperandsHandlers
     QUIT \ THROW
     ; 
 
-: asmcoder ( j*x adr-alt -- i*x ) 
+: asmcoder ( j*x nexus -- i*x ) 
     \ на стеке лежат операнды предыдущего оператора/команды
     DUP \ не 0
     IF \ предисполнитель
-        DUP @ .eXt @ EXECUTE
+        DUP first .eXt @ EXECUTE
     THEN
     \ заменить оператор на предыдущий,
     operator @ SWAP operator ! \ а текущий будет ждать своих операндов
     ?DUP 
-    IF @ T! \ сделать снимок стека
+    IF T! \ сделать снимок стека
         \ цикл перебора альтернативных кодировок
-        BEGIN T@ \ восстановить стек
-            ['] sacker CATCH ?DUP \ попытка кодирования 
-        WHILE lastErrAsm ! \ неудача
-              \ восстановить стек после сбоя
-              T@ .eAlt @ ?DUP \ перейти на альтернативную кодировку
-        WHILE Tdrop T! \ сделать новый снимок стека
-        REPEAT Tdrop errQuit \ выход с ошибкой
-        THEN
+         BEGIN T@  \ восстановить стек
+             first ['] sacker CATCH ?DUP \ попытка кодирования 
+         WHILE lastErrAsm ! \ неудача
+               \ восстановить стек после сбоя
+              T@ tail ?DUP \ перейти на альтернативную кодировку
+         WHILE Tdrop T! \ сделать новый снимок стека
+         REPEAT Tdrop errQuit \ выход с ошибкой
+         THEN
         Tdrop \ нормальный выход, сброс снимка 
     THEN
     DEPTH lastDepth ! \ запомнить текущую глубину стека
@@ -335,7 +331,7 @@ MODULE: OperandsHandlers
 
 S"     " DROP @ CONSTANT 4BL \ 4 пробела как число 
 
-: phrase ( <str> -- adr u)  \ выделить из входного потока фразу
+: Phrase ( <str> -- adr u)  \ выделить из входного потока фразу
     \ фраза: последовательность слов разделенных не более чем 3 пробелами
     SOURCE >IN @ /STRING SWAP >R \ R: адрес начала строки
     0 \ u i
@@ -345,7 +341,7 @@ S"     " DROP @ CONSTANT 4BL \ 4 пробела как число
 
 : 4BLparse ( <str> -- adr u) \ изъять из входного потока фразу
     \ фраза: последовательность слов разделенных не более чем 3 пробелами
-    phrase >IN @ OVER + >IN ! \ отрезать фразу
+    Phrase >IN @ OVER + >IN ! \ отрезать фразу
     ;
 
 : createMnemo ( adr u -- adr_strMnemo)
@@ -354,15 +350,17 @@ S"     " DROP @ CONSTANT 4BL \ 4 пробела как число
     DUP .mAlt iniChain 
     -ROT str> OVER .mStr ! 
     DUP ,
-    DOES> @ asmcoder
+    DOES> @ .mAlt @ ( nexus) asmcoder
     ;
 
+: fuflo ; \ слово-заглушка
+
 : createEncode ( -- adr_strEncode) \ создать структуру кодировщика
-    structEncode alloc   \ обнулить поля структуры
-    DUP .eLnk  encodes +chain   \ включиться в цепочку кодировщиков (в начало)
-    DUP .eAlt  iniChain
-    DUP .eHlp  iniChain
-    DUP .eOps  iniChain
+    structEncode alloc    \ обнулить поля структуры
+    DUP encodes @ +tie    \ включиться в цепочку кодировщиков (в начало)
+    ['] fuflo OVER .eXt ! \ нету предИсполнителя
+    DUP .eHlp  iniChain   \ пустая цепочка   
+    DUP .eOps  iniChain   \ пустая цепочка   
     ;
     
 : createHlp ( tag adr u -- adr_strHlp) \ создать структуру помощника
@@ -372,10 +370,10 @@ S"     " DROP @ CONSTANT 4BL \ 4 пробела как число
     TUCK .hTag !
     ;
 
-: Assm: ( <mnemonics> -- -> ) \ создает или находит структуру 
+: Assm: ( <mnemonics> -- 0 ) \ создает или находит структуру 
     \ ассемблерной команды <mnemonics>
     \ возвращает ссылку на неё
-    [CHAR] P phrase -BL createHlp \ hlp запомнить фразу команды в структуре помощника
+    [CHAR] V Phrase -BL createHlp \ hlp запомнить фразу команды в структуре помощника
     BL WORD COUNT    \ hlp adr u - мнемоника во входном буфере
     2DUP UPPERCASE-W \ ВСЕГДА В ВЕРХНЕМ РЕГИСТРЕ
     2DUP GET-CURRENT SEARCH-WORDLIST  
@@ -388,11 +386,12 @@ S"     " DROP @ CONSTANT 4BL \ 4 пробела как число
     SWAP \ adr_strMnemo hlp 
     createEncode
     \ adr_strMnemo hlp adr_strEncode
-    TUCK .eHlp chain+ \ подключить помощника
+    TUCK .eHlp @ tie+ \ подключить помощника
     \ adr_strMnemo adr_strEncode
     OVER .mStr @ OVER .eMnemo ! 
-    SWAP .mAlt ['] .eAlt extEach  !
+    SWAP .mAlt @ tie+
     ALSO OperandsHandlers \ подключить обработчики операндов
+    0
     ;
 
 
@@ -421,52 +420,49 @@ S"     " DROP @ CONSTANT 4BL \ 4 пробела как число
     R@ OR R>         \ mask'01' mask'1'
     ;
 
-: chainHelp+ ( adr -- ) \ добавить Это место к помощникам
-    encodes @ .eHlp chain+ 
-    ;
-
-: fuflo ; \ слово-заглушка
 
 : createOp ( xt tag chain --) \ создать структуру оператора
         \ и добавить его в конец цепочки операндов
         structOp alloc \ xt tag chain adr
-        DUP .oLnk ROT chain+ 
+        DUP ROT tie+ 
         2DUP .oTag ! \ xt tag adr
         SWAP S@ ROT tagMask \ xt adr mask
         OVER .oMask ! \ xt adr
         .oXt ! 
     ;
 
-: fillEncode ( mnem n*[xt,tag] adr2 u2 -- ) \ создать структуру кодировщика команды
+
+: fillEncode ( 0 n*[xt,tag] adr2 u2 -- 0) \ дополнить структуру кодировщика команды
     \ по шаблону adr2 u2
-    encodes @ >R
+    encodes @ first >R
     >S
         S@ cliche&mask  
         R@ .eCliche !
         R@ .eMask !
-        ['] fuflo R@ .eXt ! \ нету предИсполнителя
         BEGIN ( xt,tag) 
             DUP S@ +listExcepTag inStr? 
             \ потребление операндов
         WHILE  
-            R@ .eOps createOp
+            R@ .eOps @ createOp
         REPEAT
     S> 2DROP
-    ( mnem)
+    ( 0)
     R> DROP
     ;
 
-: Encod: ( mnem n*[xt,tag] "encode" --  ) \ строит структуру кодирования 
+: Encod: ( 0 n*[xt,tag] "encode" --  ) \ заполняет структуру кодирования 
 \ потребляет операнды и мнемонику со стека
     PREVIOUS \ отключить обработчики операндов
-    BL WORD COUNT fillEncode \ создать структуру
-    \ и включить ее в конец цепочки альтернатив
-    \ (mnem)
-    
+    BL WORD COUNT fillEncode \ дополнить структуру
+    \ (0)
+    DROP
     ;
 
 
 \ ============== слова помощники/описатели команд ===========================
+: chainHelp+ ( adr -- ) \ добавить Это место к помощникам
+    encodes @ first .eHlp @ tie+ 
+    ;
 
 : helper: ( tag <name> -- ) \ определить помощника
     CREATE ,
@@ -479,36 +475,38 @@ CHAR C helper: Cycles: ( <str> --) \ -*- циклы
 CHAR N helper: Notes:  ( <str> --) \ дополнительные замечания
 
 : tag. ( symbol --) \ развернуть тэг
-    DUP [CHAR] P = IF ." Phrase: " ELSE
-    DUP [CHAR] A = IF ." Action: " ELSE
-    DUP [CHAR] F = IF ." Flags : " ELSE
-    DUP [CHAR] C = IF ." Cycles: " ELSE
-    DUP [CHAR] N = IF ." Notes : " 
+    DUP [CHAR] V = IF ." Variant: " ELSE
+    DUP [CHAR] A = IF ." Action : " ELSE
+    DUP [CHAR] F = IF ." Flags  : " ELSE
+    DUP [CHAR] C = IF ." Cycles : " ELSE
+    DUP [CHAR] N = IF ." Notes  : " 
     THEN THEN THEN THEN THEN DROP
     ;
 
-#def #tab> R@ SPACES
+VARIABLE tabul \ табулятор
+: tab> tabul @ SPACES ;
 
-: extHlp ( tab adr -- tab adr)
-    SWAP >R
-        DUP .hTag C@ #tab> tag.
-        DUP .hStr @ COUNT TYPE CR
-    R> SWAP
+: extHlp ( obj -- f)
+    DUP .hTag C@ tab> tag.
+    .hStr @ COUNT TYPE CR
+    TRUE 
     ;
 
-: help. ( .eHlp tab --)
-    SWAP
-    ['] extHlp extEach 2DROP
+: help. ( nexus -- )
+     ['] extHlp extEach 
     ;
 
-: extAhlp (  tab alt -- tab' alt')
-    2DUP .eHlp SWAP help.
-    SWAP 4 + SWAP
+: extAhlp ( obj -- f)
+    .eHlp @  help.
+    4 tabul +!
+    TRUE
     ;
+
 : helpAsm ( <name> --) \ показать справку по команде <name>
     CR BL WORD FIND
-    IF  >BODY @ ( mnen)
-        .mAlt 0 SWAP ['] extAhlp extEach 2DROP
+    IF  0 tabul !
+        >BODY @ ( mnen)
+        .mAlt @ ['] extAhlp extEach 
     ELSE DROP
     THEN
     ;
@@ -520,49 +518,44 @@ CHAR N helper: Notes:  ( <str> --) \ дополнительные замечан
     8 CELLS BIN[ U.0R ]BIN 
     ;
 
-: extOps ( tab adr -- tab adr) \ показать оператор
-    SWAP >R
-    #tab>   DUP .oTag  ." tag=   " @ EMIT              CR 
-    #tab>   DUP .oMask ." mask=  " @ 32bit.            CR 
-    #tab>   DUP .oXt   ." xt=    " @ .HEX              CR 
-    R> SWAP
+: extOps ( obj -- f) \ показать оператор
+    tab>   DUP .oTag  ." tag=   " @ EMIT              CR 
+    tab>   DUP .oMask ." mask=  " @ 32bit.            CR 
+    tab>       .oXt   ." xt=    " @ .HEX              CR 
+    TRUE
     ;
 
-: shwOps ( adr tab --)
-    SWAP ['] extOps extEach 2DROP
+: shwOps ( nexus  --)
+    ['] extOps extEach 
     ;
 
-: shwEncode ( adr tab --) \ показать структуру кодировщика команды
-    \ с отступом tab
-    >R 
-    #tab> ." ======================================="  CR 
-    #tab> DUP          ." link=  " @ .HEX              CR 
-    #tab> DUP .eAlt    ." alt=   " @ .HEX              CR 
-    #tab> DUP .eHlp    ." hlp=   " @ .HEX              CR 
-    #tab> ." ----------------------------------------" CR 
-    #tab> DUP .eCliche ." clishe=" @ 32bit.            CR 
-    #tab> DUP .eMask   ." mask=  " @ 32bit.            CR 
-    #tab> DUP .eXt     ." preXt= " @ .HEX              CR
-    #tab> DUP .eMnemo  ." mnemo= " @ COUNT TYPE  CR
-          DUP .eOps R@ shwOps
-    #tab> ." ---------------------------------------"  CR 
-    .eHlp R@ help.  CR 
-    R> DROP
+: shwEncode ( obj --) \ показать структуру кодировщика команды
+    \ с отступом 
+    tab> ." ========================================" CR 
+    DUP .eHlp @ first extHlp DROP             
+    tab> ." ----------------------------------------" CR 
+    tab> DUP .eCliche ." clishe=" @ 32bit.            CR 
+    tab> DUP .eMask   ." mask=  " @ 32bit.            CR 
+    tab> DUP .eXt     ." preXt= " @ .HEX              CR
+    tab> DUP .eMnemo  ." mnemo= " @ COUNT TYPE  CR
+           DUP .eOps @ shwOps
+    tab> ." ---------------------------------------"  CR 
+    .eHlp @ tail help.  CR 
     ;
 
 : shwMnemo ( xt --) \ показать структуру мнемоники
     >BODY @
-    DUP .mAlt @ ." alt=   " .HEX CR
     .mStr @ ." mnemo= " COUNT TYPE CR
     ;
 
-: extCmd ( tab adr -- tab' adr')
-    SWAP 4 + 2DUP shwEncode SWAP .eAlt 
+: extCmd ( obj -- f)
+    4 tabul +! shwEncode SWAP TRUE 
     ;
 : shwCmd ( xt --) \ показать команду полностью
+    0 tabul !
     DUP shwMnemo
-    >BODY @ 0 SWAP ( tab alt)
-    ['] extCmd extEach 2DROP
+    >BODY @ .mAlt @  ( nexus)
+    ['] extCmd extEach 
     ; \ пример импользования: ' ANDS shwCmd
 
 #def langASM .( loaded) CR

@@ -2,34 +2,39 @@
 MODULE: chains
 \ связывание объектов в цепочечку
 \ имя цепочки (VARIABLE) указывает (содержит адрес) на первый элемент,
-\ тот на второй... последний = NIL.
-\ name-->|next|---->|next|---->...-->|NIL |
-\        |hook|->a  |hook|->b  ...   |hook|->x
+\ тот на второй... последний = 0
+\ name-->|next|---->|next|---->...-->|0|
+\        |hook|->a  |hook|->b  ...   |*|
 0 
 CELL -- .next \ указатель на следующее звено цепочки
 CELL -- .hook \ указатель на объект
 CONSTANT structNexus
 
-VARIABLE NIL NIL NIL ! \ признак конца цепочки
-
-: noExt ; \ слово пустышка
-: counter ( i chain -- i+1 chain) \ счетчик элементов в цепи
-    >R 1+ R> ;
-
-EXPORT
-: nexus ( -- adr) \ создать звено цепочки
+: newNexus ( -- nexus) \ создать звено цепочки (nexus)
     structNexus ALLOCATE THROW 
     ;
 
-: +tie ( obj chain --)  \ привязать объект obj в начало цепочки chain
-    nexus ( o c n )
-    OVER @ OVER .next ! \ n.next=[c]
-    TUCK SWAP !         \ c=n
-    .hook !             \ n.hook=o
+: cpNexus ( nexusA nexusB --) \ копировать nexusA в nexusB
+    >R DUP .next @ R@ .next !
+    .hook @ R> .hook !
+    ;
+
+: exCnt ( i obj -- i+1 f) \ счетчик элементов в цепи
+    DROP 1+ TRUE ;
+: exPrint ( obj -- f) \ печать объектов
+    . TRUE ;
+
+EXPORT
+
+: +tie ( obj nexus1 --)  \ привязать объект obj в начало цепочки, перед nexus1 
+    newNexus 2DUP cpNexus ( o x1 x2 ) \ x2=x1
+    OVER .next ! ( 0 x1) \ [x1]->x2 
+    .hook !
     ;
 
 : iniChain ( adr -- ) \ проинициализировать цепочку по адресу
-    NIL SWAP !
+    newNexus 0 OVER ! ( a x1) \ [x]=0
+    SWAP ! \ [a]->x1, указатель на пустую строку
     ;
 
 : chain: ( <name> --) \ создание новой цепочки с именем <name>
@@ -38,80 +43,58 @@ EXPORT
     iniChain 
     ;
 
-: first ( @chain -- obj) \ получить первый объект
-    DUP NIL <> IF .hook @ THEN \ объект или NIL
+: first ( nexus -- obj) \ получить первый объект
+    DUP .next 0= ABORT" Конец цепочки!"
+    .hook @ \ объект
     ;
     
-: tail ( @chain -- @chain') \ взять хвост цепочки
-    DUP NIL <> IF @ THEN
+: tail ( nexus -- nexus'|0) \ получить хвост цепочки
+    DUP IF .next @ THEN \ следующий или 0
     ;
 
-: last ( @chain -- @chain-last) \ дать последнее звено
-    BEGIN DUP tail DUP NIL <> WHILE NIP REPEAT DROP
+DEFINITIONS
+
+: last ( nexus -- nexus=0) \ дать последнее звено
+    BEGIN DUP tail ?DUP WHILE NIP REPEAT
     ;
-: tie+ ( obj chain --)  \ привязать объект obj в конец цепочки chain
+
+EXPORT
+
+: tie+ ( obj nexus --)  \ привязать объект obj в конец цепочки
     last +tie
     ;
 
-: print ( @chain --) \ выдать цепочку
-    BEGIN DUP NIL <> WHILE DUP first . tail REPEAT DROP
-    ;
-.( NIL=) NIL .HEX CR
- chain: asd
-1 asd +tie
-2 asd +tie
-3 asd +tie
-asd @ tail tail first .
- 4 asd tie+
-asd @ first .
-CR asd @ print
-;MODULE HEX QUIT
-: extEach ( chain xt -- last ) \ выполнить xt для всех элементов chain
-    \ xt (j*x chain-- i*x chain')
-    \ xt принимает адрес элемента (chain) и 
-    \ может оставить его без изменения,
-    \ либо модифицировать, для досрочного завершения
-    \ или перехода на другую цепь  
-    >R
-    BEGIN DUP @ NIL <>  WHILE @ R@ EXECUTE REPEAT 
-    R> DROP
+: extEach ( nexus xt -- i*x ) \ выполнить xt для всех объектов nexus
+    \ xt ( obj -- i*x f )
+    \ xt принимает адрес объекта и выдает флаг,
+    \ TRUE - продолжить обход
+    \ FALSE - завершить обход
+    SWAP 2>R
+    BEGIN 2R@ NIP .next @ WHILE 2R@ first SWAP EXECUTE WHILE 2R> tail 2>R REPEAT THEN
+    2R> 2DROP
     ;
 
-: chain> ( chain -- last) \ последний член --> NIL
-    ['] noExt extEach \ пройти по цепочке ничего не делая
+: chCount ( nexus -- u) \ выдать количество элементов в цепочке
+    0 SWAP ['] exCnt extEach 
     ;
 
-: +chain ( adr chain -- ) \ включить adr в начало цепочки chain
-    \ chain-->b-->a-->NIL 
-    \      [3] [2] [1]
-    \ chain-->adr-->b-->a-->NIL 
-    \       [4]  [3] [2] [1]
-    DUP @ -ROT OVER SWAP ! ! \ chain указывает на adr,
-    \ а тот - на прежнее значение chain
+: chPrint ( nexus --) \ выдать цепочку
+    ['] exPrint extEach
     ;
 
-: chain+ ( adr chain -- ) \ включить adr в конец цепочки chain
-    \ chain-->a-->b-->NIL 
-    \      [1] [2] [3]
-    \ chain-->a-->b-->adr-->NIL 
-    \      [1] [2] [3]   [4]
-    DUP @ NIL <> IF chain> THEN  \ начало уже есть, дойти до конца
-    +chain
-    ;
+;MODULE 
 
-: chainCount ( chain -- u) \ выдать количество элементов в цепочке
-    0 SWAP ['] counter extEach DROP
-    ;
-
-;MODULE
 
 \EOF пример использования
-chain: tstchain
-here tstchain chain+
-cell allot
-here tstchain +chain
-cell allot
-here tstchain chain+
-cell allot
-tstchain chainCount . CR ( -- 3)
+chain: asd
+1 asd @ +tie
+2 asd @ +tie
+3 asd @ +tie
+4 asd @ tie+
+CR asd @ chPrint
+55 asd @ tie+
+66 asd @ +tie
+CR asd @ chPrint
+CR asd @ chCount DUP . 6 = [IF] .( test OK) [ELSE] .( test FAIL) [THEN] CR
+HEX
 QUIT

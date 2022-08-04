@@ -6,7 +6,6 @@
 REQUIRE 2CONSTANT lib/include/double.f
 REQUIRE toolbox  toolbox.f
 REQUIRE langASM langASM.f 
-HEX
 S" ARMv6-Mset.f" INCLUDED
 
 \ нужен пакет gcc-arm-none-eabi

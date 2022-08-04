@@ -13,14 +13,13 @@
 \ пустое место в сегменте, так что читать из сегмента не получится.
 \ Перед чтением из сегмента, указатель должен быть установлен на нужное место (ORG).
 
-REQUIRE chain+ chains.f \ для свзывания сегментов в цепь
+REQUIRE chain: chains.f \ для свзывания сегментов в цепь
 REQUIRE alloc  heap.f   \ для обращения к куче
 
 MODULE: segments
 
     \ структура описывающая сегмент
     0
-    CELL -- .next   \ ссылка на следующий сегмент
     CELL -- .adr    \ адрес выделенной памяти в компе
     CELL -- .name   \ --> на строку со счетчиком
     CELL -- .base   \ начало сегмента в памяти чипа
@@ -34,9 +33,8 @@ MODULE: segments
 \ 0 <=      finger         <=       wender           <= lim
 EXPORT
     0 VALUE SEG \ ссылка на структуру текущего сегмента
-    chain: SEGnet \ цепочка сегментов
+    chain: SegChain \ цепочка сегментов
 DEFINITIONS
-    SEGnet @ CONSTANT end \ признак конца цепочки
     : name. ( seg --) \ напечатать имя сегмента
         .name @ COUNT TYPE
         ;
@@ -76,18 +74,18 @@ DEFINITIONS
         SEG .adr @ + 
         ;
 
-    : (.seg) ( seg -- seg)
+    : (.seg) ( seg -- f)
         >R
         SEG R@ = IF CR ." == Текущий сегмент == " THEN
         CR ." Имя:     "   R@ name. 
-        CR ." Next:    "   R@ .next   @ DUP end <> IF name. ELSE DROP THEN 
         CR ." Адрес:   0x" R@ .adr    @ .HEX
         CR ." База:    0x" R@ .base   @ .HEX
         CR ." Размер:  "   R@ .size   @ .
         CR ." Лимит:   "   R@ .lim    @ .
         CR ." .finger: "   R@ .finger @ .
         CR ." .wender: "   R@ .wender @ .
-        CR R> 
+        CR R> DROP
+        TRUE
         ;
     : .seg ( seg --) \ показать структуру сегмента seg
         (.seg) DROP
@@ -100,7 +98,7 @@ EXPORT
         >IN @ >R
             CREATE DUP >R ALLOCATE THROW
             HERE stuctSEG 0 FILL
-            HERE .next SEGnet chain+ \ в цепочку
+            HERE SegChain @ tie+ \ в цепочку
             HERE .adr !
             R> HERE .size !
             HERE .lim !
@@ -110,13 +108,13 @@ EXPORT
             stuctSEG ALLOT
         ;
 
-    : ?seg ( --) \ показать структуру текущего сегмента
+    : ?seg ( obj--) \ показать структуру текущего сегмента
         SEG IF SEG .seg THEN
         ;
 
     : lsSEG ( -- ) \ выдать список всех сегментов
-        SEGnet @ 
-        IF SEGnet ['] (.seg) extEach DROP
+        SegChain @ 
+        IF SegChain @ ['] (.seg) extEach 
         THEN
         ;
 
@@ -173,12 +171,7 @@ EXPORT
 \EOF \ ======== ТЕСТЫ И ПРИМЕРЫ =====================================================
 0x08000000 30  22 createSeg: ROM-SEG
 ROM-SEG TO SEG
-ROM-SEG 7 CELLS DUMP 
-CR
-SEG 40 DUMP 
-CR
-0x123 >Seg SEG 10 DUMP 
-CR
+0x123 >seg
 SEG SEGdump
 ?seg CR
 
@@ -193,4 +186,5 @@ tmp2 TO SEG
 \ ?seg CR
 
 tup TO SEG
-lsSEG
+CR lsSEG
+QUIT

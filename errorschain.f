@@ -4,27 +4,25 @@ REQUIRE alloc  heap.f
 
 MODULE: errorsChain
 
-    chain: errStp   \ пустая цепочка, 
-    \ служит для досрочного прекращения перебора цепочки и
-    \ как признак того, что искомое найдено
     
     0 \ структура статьи ошибки
-    CELL -- .NextErr \ поле связи 
     CELL -- .NumErr  \ номер ошибки
     CELL -- .TxtErr  \ -->строка со счетчиком, описание ошибки
     CONSTANT structErr
 
-    : ext? ( n chain -- n chain'| adr errStp )
-                  \          \          \__ когда найдет
-                   \ _________\_ пока ищет
+    : ext? ( n errObj -- n TRUE| adrErrStr FALSE )
         \ поисковый бегунок
-        2DUP .NumErr @ = 
-        IF NIP errStp THEN \ прекратить поиск по совпадению
+        >R ( n)
+        R@ .NumErr @ OVER = ( n f)
+        IF DROP R@ .TxtErr @ FALSE ELSE TRUE THEN
+        R> DROP
         ;
     
-    : extList ( adr -- adr )
-        DUP .NumErr @ .
-        DUP .TxtErr @ COUNT TYPE CR ;
+    : extList ( obj -- TRUE )
+        DUP 
+        .NumErr @ .
+        .TxtErr @ COUNT TYPE CR 
+        TRUE ;
 
 EXPORT
 
@@ -33,7 +31,7 @@ EXPORT
     : err: ( n "описание" --)
         CREATE 
         structErr alloc DUP >R ,
-        R@ errChain +chain \ включить в цепочку
+        R@ errChain @ +tie \ включить в цепочку
         R@ .NumErr ! \ запомнить номер
         BL WORD DROP \ поглотить следующее слово, S"
         [CHAR] " PARSE str> \ взять описание
@@ -41,13 +39,12 @@ EXPORT
         DOES> @ .NumErr @ ;
 
     : err? ( n -- c-addr u) \ найти описание ошибки
-        errChain ['] ext? extEach 
-        errStp = \ нашел или нет
-        IF .TxtErr @ COUNT ELSE DROP S" неизвестная ошибка" THEN 
+        DUP errChain @ ['] ext? extEach 
+        TUCK = IF DROP S" неизвестная ошибка"  ELSE COUNT THEN 
         ;
 
     : errList. ( -- ) \ распечатать известные ошибки
-        errChain ['] extList extEach DROP
+        errChain @ ['] extList extEach
         ;
 
 ;MODULE
@@ -58,4 +55,6 @@ ErrNo err: errEncode S" не удалось закодировать"
 ErrNo err: errNoReg  S" Не регистр"
 ErrNo err: errRlo    S" Не младший регистр"
 \ ...
-errRlo err? TYPE CR
+errNoReg err? TYPE CR
+errList.
+QUIT 
