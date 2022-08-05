@@ -2,9 +2,10 @@
 \ 
 REQUIRE toolbox         toolbox.f
 REQUIRE 2CONSTANT       lib/include/double.f
-REQUIRE +net            nets.f
-REQUIRE err:            errorsnet.f
+REQUIRE chain:          chains.f
+REQUIRE err:            errorschain.f
 REQUIRE enqueueNOTFOUND nf-ext.f
+REQUIRE alloc           heap.f
 
 #def NOT 0= ( x --T|F) \ инверсия результата
     \ усли x=0 - FALSE, иначе TRUE
@@ -18,7 +19,7 @@ VARIABLE operator 0 operator ! \ текущий оператор (команда
 VARIABLE lastDepth \ глубина стека перед отсрочкой оператора
 VARIABLE lastErrAsm \ код последней ошибки ассемблера
 VARIABLE enc \ текущий код команды
-net: encodes \ кончик цепочки енкодов
+chain: encodes \ кончик цепочки енкодов
 
 : replaceBytes ( adr u b1 b2 -- adr u i) \ заменить в строке adr u все быйты b1 на b2
     \ i -количество замен
@@ -186,28 +187,31 @@ ASM? ON
 
 \ структура мнемоники
 0
-CELL -- .malt \ - указатель на вариант операндов/енкода для ассемблирования
-   0 -- .cstr \ - мнемоника, строка со счетчиком
+CELL -- .mAlt \ ->указатель на цепочку вариантов операндов/енкода для ассемблирования
+CELL -- .mStr \ ->указатель на мнемонику, строку со счетчиком
 CONSTANT structMnem 
 
 0 \ структура операнда
-CELL -- .lnkOp
-CELL -- .tag
-CELL -- .maskOp
-CELL -- .xtOp
+CELL -- .oTag       \ метка операнда
+CELL -- .oMask      \ маска операнда    
+CELL -- .oXt        \ обработчик операнда
 CONSTANT structOp
 
 0 \ структура кодировщика варианта команды
-CELL -- .link     \  поле связи цепи всех кодировщиков
-CELL -- .alt      \  поле связи цепи альтернатив
-CELL -- .help     \  ->помощники команды
-CELL -- .cliche   \  клише команды
-CELL -- .mask     \  маска команды
-CELL -- .preXt    \  токен предварительного исполнения
-CELL -- .adrMnemo \  адрес структуры мнемоники
-CELL -- .ops      \  ->цепь операндов
-CELL -- .phrase   \  ->фраза команды  
+CELL -- .eHlp       \ ->цепочка, помощники команды
+CELL -- .eCliche    \ клише команды
+CELL -- .eMask      \ маска команды
+CELL -- .eXt        \ токен предварительного исполнения
+CELL -- .eMnemo     \ адрес структуры мнемоники
+CELL -- .eOps       \ ->цепь операндов
 CONSTANT structEncode
+
+0 \ структура помощника
+CELL -- .hLink \ связь
+CELL -- .hTag  \ метка
+CELL -- .hStr  \ ->строка описания
+CONSTANT structHelper
+
 
 
 MODULE: OperandsHandlers
@@ -241,7 +245,7 @@ MODULE: OperandsHandlers
 : <I> ( <c> --) \ проверка символа "i"
     BL WORD COUNT DROP C@ CHAR-UPPERCASE [CHAR] I = NOT IF errNoSym THROW THEN ;
 : i ( --)
-    ['] <I> encodes @ .preXt ! ;
+    ['] <I> encodes @ first .eXt ! ;
 ;MODULE
 \ ===================================================================
 
@@ -249,17 +253,16 @@ MODULE: OperandsHandlers
     \ строка adr u не изменяется, изменяется её временная копия
     >S S" cp*" +>S S> ; 
 
-: execOp ( j*x adr-ops -- i*x) \ выполнить обработчики операндов
-    BEGIN  @ DUP 
-    WHILE  >R
-           R@ .maskOp @ 
-           R@ .xtOp @ EXECUTE 
-           R> .lnkOp
-    REPEAT DROP
+: execOp ( j*x obj -- i*x f) \ выполнить обработчики операндов
+    >R
+        R@ .oMask @ 
+        R@ .oXt @ EXECUTE 
+    R> DROP
+    TRUE
     ; 
-: sacker ( j*x adr-alt --) \ упаковать операнды в код
-    DUP .cliche @ enc !
-    .ops execOp
+: sacker ( j*x obj --) \ упаковать операнды в код
+    DUP .eCliche @ enc !
+    .eOps @ ['] execOp extEach
     \ проверить потребление операндов
     DEPTH lastDepth @ - IF errOddOp THROW THEN
     ;
@@ -291,25 +294,25 @@ MODULE: OperandsHandlers
     QUIT \ THROW
     ; 
 
-: asmcoder ( j*x adr-alt -- i*x ) 
+: asmcoder ( j*x nexus -- i*x ) 
     \ на стеке лежат операнды предыдущего оператора/команды
     DUP \ не 0
     IF \ предисполнитель
-        DUP @ .preXt @ EXECUTE
+        DUP first .eXt @ EXECUTE
     THEN
     \ заменить оператор на предыдущий,
     operator @ SWAP operator ! \ а текущий будет ждать своих операндов
     ?DUP 
-    IF @ T! \ сделать снимок стека
+    IF T! \ сделать снимок стека
         \ цикл перебора альтернативных кодировок
-        BEGIN T@ \ восстановить стек
-            ['] sacker CATCH ?DUP \ попытка кодирования 
-        WHILE lastErrAsm ! \ неудача
-              \ восстановить стек после сбоя
-              T@ .alt @ ?DUP \ перейти на альтернативную кодировку
-        WHILE Tdrop T! \ сделать новый снимок стека
-        REPEAT Tdrop errQuit \ выход с ошибкой
-        THEN
+         BEGIN T@  \ восстановить стек
+             first ['] sacker CATCH ?DUP \ попытка кодирования 
+         WHILE lastErrAsm ! \ неудача
+               \ восстановить стек после сбоя
+              T@ tail ?DUP \ перейти на альтернативную кодировку
+         WHILE Tdrop T! \ сделать новый снимок стека
+         REPEAT Tdrop errQuit \ выход с ошибкой
+         THEN
         Tdrop \ нормальный выход, сброс снимка 
     THEN
     DEPTH lastDepth ! \ запомнить текущую глубину стека
@@ -328,7 +331,7 @@ MODULE: OperandsHandlers
 
 S"     " DROP @ CONSTANT 4BL \ 4 пробела как число 
 
-: phrase ( <str> -- adr u)  \ выделить из входного потока фразу
+: Phrase ( <str> -- adr u)  \ выделить из входного потока фразу
     \ фраза: последовательность слов разделенных не более чем 3 пробелами
     SOURCE >IN @ /STRING SWAP >R \ R: адрес начала строки
     0 \ u i
@@ -338,29 +341,57 @@ S"     " DROP @ CONSTANT 4BL \ 4 пробела как число
 
 : 4BLparse ( <str> -- adr u) \ изъять из входного потока фразу
     \ фраза: последовательность слов разделенных не более чем 3 пробелами
-    phrase >IN @ OVER + >IN ! \ отрезать фразу
+    Phrase >IN @ OVER + >IN ! \ отрезать фразу
     ;
 
+: createMnemo ( adr u -- adr_strMnemo)
+    2DUP CREATED    
+    structMnem alloc
+    DUP .mAlt iniChain 
+    -ROT str> OVER .mStr ! 
+    DUP ,
+    DOES> @ .mAlt @ ( nexus) asmcoder
+    ;
 
-: Assm: ( "mnemonics" -- -> mnemo ) \ создает или находит структуру 
+: fuflo ; \ слово-заглушка
+
+: createEncode ( -- adr_strEncode) \ создать структуру кодировщика
+    structEncode alloc    \ обнулить поля структуры
+    DUP encodes @ +tie    \ включиться в цепочку кодировщиков (в начало)
+    ['] fuflo OVER .eXt ! \ нету предИсполнителя
+    DUP .eHlp  iniChain   \ пустая цепочка   
+    DUP .eOps  iniChain   \ пустая цепочка   
+    ;
+    
+: createHlp ( tag adr u -- adr_strHlp) \ создать структуру помощника
+    str> \ tag c-addr
+    structHelper alloc  ( tag c-adr adr_Hlp)  \ обнулить поля структуры
+    TUCK .hStr !
+    TUCK .hTag !
+    ;
+
+: Assm: ( <mnemonics> -- 0 ) \ создает или находит структуру 
     \ ассемблерной команды <mnemonics>
     \ возвращает ссылку на неё
-    \ и её фразу
-    ALSO OperandsHandlers \ подключить обработчики операндов
-    phrase -BL >S \ запомнить фразу команды в строковом стеке
-    >IN @  BL WORD COUNT 2>R \ R: adr u - мнемоника во входном буфере
-    2R@ UPPERCASE-W \ ВСЕГДА В ВЕРХНЕМ РЕГИСТРЕ
-    2R@ GET-CURRENT SEARCH-WORDLIST  
+    [CHAR] V Phrase -BL createHlp \ hlp запомнить фразу команды в структуре помощника
+    BL WORD COUNT    \ hlp adr u - мнемоника во входном буфере
+    2DUP UPPERCASE-W \ ВСЕГДА В ВЕРХНЕМ РЕГИСТРЕ
+    2DUP GET-CURRENT SEARCH-WORDLIST  
     IF  \  есть такое, 
-        NIP  2R> 2DROP
-        >BODY \ выдать адрес структуры мнемоники
+        NIP NIP
+        >BODY  @ \ выдать адрес структуры мнемоники
     ELSE \ нету, создать
-        >IN ! CREATE    
-        HERE 
-        0 HERE .malt ! structMnem ALLOT
-        2R> str! ALIGN 
-        DOES> asmcoder
-    THEN 
+        createMnemo
+    THEN
+    SWAP \ adr_strMnemo hlp 
+    createEncode
+    \ adr_strMnemo hlp adr_strEncode
+    TUCK .eHlp @ tie+ \ подключить помощника
+    \ adr_strMnemo adr_strEncode
+    OVER .mStr @ OVER .eMnemo ! 
+    SWAP .mAlt @ tie+
+    ALSO OperandsHandlers \ подключить обработчики операндов
+    0
     ;
 
 
@@ -379,74 +410,63 @@ S"     " DROP @ CONSTANT 4BL \ 4 пробела как число
     LOOP NIP
     ;
 
-: cliche&mask ( adr u --) \ из строки adr u вида "0100000101mmmddd"
+: cliche&mask ( adr u -- mask cliche ) \ из строки adr u вида "0100000101mmmddd"
     \ сделать клише и маску команды
     \ по маске из машинного слова выделяется опознавательный код команды,
     \ а клише служит для сравнения "код=клише"
     2DUP 
-    [CHAR] 1 tagMask \ mask'1'=клише
-    DUP HERE .cliche ! -ROT 
-    [CHAR] 0 tagMask \ mask'1' mask'0')
-    OR HERE .mask ! \ маска'01'
+    [CHAR] 1 tagMask >R \ R: mask'1'=клише
+    [CHAR] 0 tagMask \ mask'0'
+    R@ OR R>         \ mask'01' mask'1'
     ;
 
-: netHelp+ ( -- ) \ добавить Это место к помощникам
-    HERE encodes @ .help net+ 
-    ;
 
-: fuflo ; \ слово-заглушка
-
-: createOp ( xt tag net --) \ создать структуру оператора
+: createOp ( xt tag chain --) \ создать структуру оператора
         \ и добавить его в конец цепочки операндов
-        structOp ALLOCATE THROW \ xt tag net adr
-        DUP .lnkOp ROT net+ 
-        2DUP .tag ! \ xt tag adr
+        structOp alloc \ xt tag chain adr
+        DUP ROT tie+ 
+        2DUP .oTag ! \ xt tag adr
         SWAP S@ ROT tagMask \ xt adr mask
-        OVER .maskOp ! \ xt adr
-        .xtOp ! 
+        OVER .oMask ! \ xt adr
+        .oXt ! 
     ;
-    
-: createEncode ( mnem n*[xt,tag] adr2 u2 -- mnem) \ создать структуру кодировщика команды
+
+
+: fillEncode ( 0 n*[xt,tag] adr2 u2 -- 0) \ дополнить структуру кодировщика команды
     \ по шаблону adr2 u2
-    HERE >R
+    encodes @ first >R
     >S
-    S@ cliche&mask  
-    ['] fuflo HERE .preXt ! \ нету предИсполнителя
-    structEncode ALLOT
-    BEGIN ( xt,tag) 
-        DUP S@ +listExcepTag inStr? 
-        \ потребление операндов
-    WHILE  
-        R@ .ops createOp
-    REPEAT
+        S@ cliche&mask  
+        R@ .eCliche !
+        R@ .eMask !
+        BEGIN ( xt,tag) 
+            DUP S@ +listExcepTag inStr? 
+            \ потребление операндов
+        WHILE  
+            R@ .eOps @ createOp
+        REPEAT
     S> 2DROP
-    DUP R>  .adrMnemo !  
-    netHelp+ 0 , [CHAR] P , S> str! ALIGN \ запомнить фразу команды
+    ( 0)
+    R> DROP
     ;
-    
-: Encod: ( mnem n*[xt,tag] "encode" --  ) \ строит структуру кодирования 
+
+: Encod: ( 0 n*[xt,tag] "encode" --  ) \ заполняет структуру кодирования 
 \ потребляет операнды и мнемонику со стека
     PREVIOUS \ отключить обработчики операндов
-    HERE structEncode 0 FILL    \ обнулить поля структуры
-    HERE .link  encodes +net   \ включиться в цепочку кодировщиков (в начало)
-    BL WORD COUNT createEncode \ создать структуру
-    \ и включить ее в конец цепочки альтернатив
-    BEGIN DUP @ WHILE @ .alt REPEAT encodes @ SWAP !
-\    .alt encodes net+
+    BL WORD COUNT fillEncode \ дополнить структуру
+    \ (0)
+    DROP
     ;
 
 
 \ ============== слова помощники/описатели команд ===========================
-
-0 \ структура помощника
-CELL -- .hLink \ связь
-CELL -- .hTag  \ метка
-   0 -- .hStr  \ строка описания
-CONSTANT structHelper
+: chainHelp+ ( adr -- ) \ добавить Это место к помощникам
+    encodes @ first .eHlp @ tie+ 
+    ;
 
 : helper: ( tag <name> -- ) \ определить помощника
     CREATE ,
-    DOES> @ netHelp+ 0 , , 4BLparse str! ALIGN 
+    DOES> @ 4BLparse createHlp chainHelp+ 
     ;
 
 CHAR A helper: Action: ( <str> --) \ строка описывающее действие команды
@@ -455,33 +475,38 @@ CHAR C helper: Cycles: ( <str> --) \ -*- циклы
 CHAR N helper: Notes:  ( <str> --) \ дополнительные замечания
 
 : tag. ( symbol --) \ развернуть тэг
-    DUP [CHAR] P = IF ." Phrase: " ELSE
-    DUP [CHAR] A = IF ." Action: " ELSE
-    DUP [CHAR] F = IF ." Flags : " ELSE
-    DUP [CHAR] C = IF ." Cycles: " ELSE
-    DUP [CHAR] N = IF ." Notes : " 
+    DUP [CHAR] V = IF ." Variant: " ELSE
+    DUP [CHAR] A = IF ." Action : " ELSE
+    DUP [CHAR] F = IF ." Flags  : " ELSE
+    DUP [CHAR] C = IF ." Cycles : " ELSE
+    DUP [CHAR] N = IF ." Notes  : " 
     THEN THEN THEN THEN THEN DROP
     ;
 
-#def tab> R@ SPACES
-: help. ( .help tab --)
-    >R
-    BEGIN @ DUP 
-    WHILE DUP .hTag C@ tab> tag.
-          DUP .hStr COUNT TYPE CR
-    REPEAT DROP 
-    R> DROP
+VARIABLE tabul \ табулятор
+: tab> tabul @ SPACES ;
+
+: extHlp ( obj -- f)
+    DUP .hTag C@ tab> tag.
+    .hStr @ COUNT TYPE CR
+    TRUE 
+    ;
+
+: help. ( nexus -- )
+     ['] extHlp extEach 
+    ;
+
+: extAhlp ( obj -- f)
+    .eHlp @  help.
+    4 tabul +!
+    TRUE
     ;
 
 : helpAsm ( <name> --) \ показать справку по команде <name>
     CR BL WORD FIND
-    IF  >BODY ( xt)
-        0 >R
-        BEGIN @ DUP 
-        WHILE DUP .help R@ help. .alt 
-              R> 4 + >R
-        REPEAT DROP 
-        R> DROP
+    IF  0 tabul !
+        >BODY @ ( mnen)
+        .mAlt @ ['] extAhlp extEach 
     ELSE DROP
     THEN
     ;
@@ -492,43 +517,48 @@ CHAR N helper: Notes:  ( <str> --) \ дополнительные замечан
 : 32bit. ( u -- ) \ печатать 32-битное число в бинарном виде
     8 CELLS BIN[ U.0R ]BIN 
     ;
-: shwEncode ( adr tab --) \ показать структуру кодировщика команды
-    \ с отступом tab
-    >R 
-    tab> ." ======================================="  CR 
-    tab> DUP       ." link=  " @ .HEX                 CR 
-    tab> DUP .alt  ." alt=   " @ .HEX                 CR 
-    tab> DUP .help ." hlp=   " @ .HEX                 CR 
+
+: extOps ( obj -- f) \ показать оператор
+    tab>   DUP .oTag  ." tag=   " @ EMIT              CR 
+    tab>   DUP .oMask ." mask=  " @ 32bit.            CR 
+    tab>       .oXt   ." xt=    " @ .HEX              CR 
+    TRUE
+    ;
+
+: shwOps ( nexus  --)
+    ['] extOps extEach 
+    ;
+
+: shwEncode ( obj --) \ показать структуру кодировщика команды
+    \ с отступом 
+    tab> ." ========================================" CR 
+    DUP .eHlp @ first extHlp DROP             
     tab> ." ----------------------------------------" CR 
-    tab> DUP .cliche ." clishe=" @ 32bit.             CR 
-    tab> DUP .mask   ." mask=  " @ 32bit.             CR 
-    tab> DUP .preXt  ." preXt= " @ .HEX               CR
-    tab> DUP .adrMnemo ." mnemo= " @ .cstr COUNT TYPE CR
-         DUP .ops 
-         BEGIN DUP  @ WHILE @
-    tab>     DUP .tag    ." tag=   " @ EMIT           CR 
-    tab>     DUP .maskOp ." mask=  " @ 32bit.         CR 
-    tab>     DUP .xtOp   ." xt=    " @ .HEX           CR 
-         REPEAT DROP
+    tab> DUP .eCliche ." clishe=" @ 32bit.            CR 
+    tab> DUP .eMask   ." mask=  " @ 32bit.            CR 
+    tab> DUP .eXt     ." preXt= " @ .HEX              CR
+    tab> DUP .eMnemo  ." mnemo= " @ COUNT TYPE  CR
+           DUP .eOps @ shwOps
     tab> ." ---------------------------------------"  CR 
-    .help R@ help.  CR 
-    R> DROP
+    .eHlp @ tail help.  CR 
     ;
 
 : shwMnemo ( xt --) \ показать структуру мнемоники
-    >BODY
-    DUP .malt @ ." alt=   " .HEX CR
-    .cstr ." mnemo= " COUNT TYPE CR
+    >BODY @
+    .mStr @ ." mnemo= " COUNT TYPE CR
     ;
 
+: extCmd ( obj -- f)
+    4 tabul +! shwEncode SWAP TRUE 
+    ;
 : shwCmd ( xt --) \ показать команду полностью
+    0 tabul !
     DUP shwMnemo
-    >BODY 0 SWAP ( tab xt)
-    BEGIN @ DUP 
-    WHILE SWAP 4 + 2DUP shwEncode SWAP .alt 
-    REPEAT 2DROP 
+    >BODY @ .mAlt @  ( nexus)
+    ['] extCmd extEach 
     ; \ пример импользования: ' ANDS shwCmd
-\ PREVIOUS DEFINITIONS    
+
 #def langASM .( loaded) CR
+
 
 

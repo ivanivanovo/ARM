@@ -1,5 +1,5 @@
 #! /usr/bin/spf4
-CASE-INS OFF
+\ CASE-INS OFF
  \ REQUIRE SEE lib/ext/disasm.f
  \ REQUIRE INCLUDED_L ~mak/listing2.f
 
