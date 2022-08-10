@@ -234,9 +234,9 @@ HEX[
 : UTF8-CASE^ ( -- adr u ) \ РУССКИЕ СИМВОЛЫ ВЕРХНЕГО РЕГИСТРА
     S" ЙЦУКЕНГШЩЗХЪФЫВАПРОЛДЖЭЯЧСМИТЬБЮЁ" ;
 
-S" ~iva/AVR/KOI8-R.f" INCLUDED
-\ S" ~iva/AVR/WIN1251.f" INCLUDED
-\ S" ~iva/AVR/CP866.f" INCLUDED
+S" KOI8-R.f" INCLUDED
+\ S" WIN1251.f" INCLUDED
+\ S" CP866.f" INCLUDED
 
 WARNING @ WARNING OFF
 : CHAR-UPPERCASE ( c -- c1 ) 
