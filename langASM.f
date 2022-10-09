@@ -6,6 +6,7 @@ REQUIRE chain:          chains.f
 REQUIRE err:            errorschain.f
 REQUIRE enqueueNOTFOUND nf-ext.f
 REQUIRE alloc           heap.f
+REQUIRE >SEG            segments.f
 
 #def NOT 0= ( x --T|F) \ инверсия результата
     \ усли x=0 - FALSE, иначе TRUE
@@ -305,15 +306,17 @@ MODULE: OperandsHandlers
     ?DUP 
     IF T! \ сделать снимок стека
         \ цикл перебора альтернативных кодировок
-         BEGIN T@  \ восстановить стек
-             first ['] sacker CATCH ?DUP \ попытка кодирования 
-         WHILE lastErrAsm ! \ неудача
-               \ восстановить стек после сбоя
-              T@ tail ?DUP \ перейти на альтернативную кодировку
-         WHILE Tdrop T! \ сделать новый снимок стека
-         REPEAT Tdrop errQuit \ выход с ошибкой
-         THEN
-        Tdrop \ нормальный выход, сброс снимка 
+        BEGIN T@  \ восстановить стек
+         first ['] sacker CATCH ?DUP \ попытка кодирования 
+        WHILE lastErrAsm ! \ неудача
+           \ восстановить стек после сбоя
+          T@ tail ?DUP \ перейти на альтернативную кодировку
+        WHILE Tdrop T! \ сделать новый снимок стека
+        REPEAT Tdrop errQuit \ выход с ошибкой
+        THEN
+        Tdrop \ нормальный выход, сброс снимка
+        \ сохранить полученную команду в текущем сегменте
+        enc @ DUP 0x10000 U< IF W>SEG ELSE >SEG THEN
     THEN
     DEPTH lastDepth ! \ запомнить текущую глубину стека
     ;

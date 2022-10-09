@@ -8,7 +8,7 @@
 tst:
 nop 
 nop  
-     add  sp,sp,sp
+    add  sp,sp,sp
     adr  r0, l2
     beq  l2
     bl   l2

@@ -27,13 +27,17 @@ MODULE: segments
     CELL -- .lim    \ ограничение размера для выделенной памяти
     CELL -- .finger \ свободный указатель, смещение от начала сегмента
     CELL -- .wender \ указатель конца записи, смещение от начала сегмента
+    CELL -- .labels \ начало цепочки меток в этом сегменте
     CONSTANT stuctSEG
 
 \ 0 <= свободный указатель <= указатель конца записи <= максимальный размер.
 \ 0 <=      finger         <=       wender           <= lim
+
 EXPORT
+
     0 VALUE SEG \ ссылка на структуру текущего сегмента
     chain: SegChain \ цепочка сегментов
+
 DEFINITIONS
     : name. ( seg --) \ напечатать имя сегмента
         .name @ str# TYPE
@@ -84,6 +88,7 @@ DEFINITIONS
         CR ." Лимит:   "   R@ .lim    @ .
         CR ." .finger: "   R@ .finger @ .
         CR ." .wender: "   R@ .wender @ .
+        CR ." .labels: "   R@ .labels @ .HEX
         CR R> DROP
         TRUE
         ;
@@ -105,11 +110,16 @@ EXPORT
             HERE .base !
         R> >IN ! BL WORD COUNT str>
             HERE .name !
+            HERE .labels iniChain \ начало цепочки местных меток
             stuctSEG ALLOT
         ;
 
     : ?seg ( obj--) \ показать структуру текущего сегмента
         SEG IF SEG .seg THEN
+        ;
+
+    : segLabels ( -- nexus)
+        SEG .labels 
         ;
 
     : lsSEG ( -- ) \ выдать список всех сегментов
