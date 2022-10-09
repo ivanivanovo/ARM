@@ -298,7 +298,7 @@ MODULE: OperandsHandlers
     \ на стеке лежат операнды предыдущего оператора/команды
     DUP \ не 0
     IF \ предисполнитель
-        DUP first .eXt @ EXECUTE
+        DUP first .eXt @ ?DUP IF EXECUTE THEN
     THEN
     \ заменить оператор на предыдущий,
     operator @ SWAP operator ! \ а текущий будет ждать своих операндов
@@ -353,12 +353,10 @@ S"     " DROP @ CONSTANT 4BL \ 4 пробела как число
     DOES> @ .mAlt @ ( nexus) asmcoder
     ;
 
-: fuflo ; \ слово-заглушка
-
 : createEncode ( -- adr_strEncode) \ создать структуру кодировщика
     structEncode alloc    \ обнулить поля структуры
-    DUP encodes @ +tie    \ включиться в цепочку кодировщиков (в начало)
-    ['] fuflo OVER .eXt ! \ нету предИсполнителя
+    DUP encodes @ +hung    \ включиться в цепочку кодировщиков (в начало)
+    0 OVER .eXt ! \ нету предИсполнителя
     DUP .eHlp  iniChain   \ пустая цепочка   
     DUP .eOps  iniChain   \ пустая цепочка   
     ;
@@ -386,10 +384,10 @@ S"     " DROP @ CONSTANT 4BL \ 4 пробела как число
     SWAP \ adr_strMnemo hlp 
     createEncode
     \ adr_strMnemo hlp adr_strEncode
-    TUCK .eHlp @ tie+ \ подключить помощника
+    TUCK .eHlp @ hung+ \ подключить помощника
     \ adr_strMnemo adr_strEncode
     OVER .mStr @ OVER .eMnemo ! 
-    SWAP .mAlt @ tie+
+    SWAP .mAlt @ hung+
     ALSO OperandsHandlers \ подключить обработчики операндов
     0
     ;
@@ -424,7 +422,7 @@ S"     " DROP @ CONSTANT 4BL \ 4 пробела как число
 : createOp ( xt tag chain --) \ создать структуру оператора
         \ и добавить его в конец цепочки операндов
         structOp alloc \ xt tag chain adr
-        DUP ROT tie+ 
+        DUP ROT hung+ 
         2DUP .oTag ! \ xt tag adr
         SWAP S@ ROT tagMask \ xt adr mask
         OVER .oMask ! \ xt adr
@@ -461,7 +459,7 @@ S"     " DROP @ CONSTANT 4BL \ 4 пробела как число
 
 \ ============== слова помощники/описатели команд ===========================
 : chainHelp+ ( adr -- ) \ добавить Это место к помощникам
-    encodes @ first .eHlp @ tie+ 
+    encodes @ first .eHlp @ hung+ 
     ;
 
 : helper: ( tag <name> -- ) \ определить помощника
@@ -488,7 +486,7 @@ VARIABLE tabul \ табулятор
 
 : extHlp ( obj -- f)
     DUP .hTag C@ tab> tag.
-    .hStr @ COUNT TYPE CR
+    .hStr @ str# TYPE CR
     TRUE 
     ;
 
@@ -537,7 +535,7 @@ VARIABLE tabul \ табулятор
     tab> DUP .eCliche ." clishe=" @ 32bit.            CR 
     tab> DUP .eMask   ." mask=  " @ 32bit.            CR 
     tab> DUP .eXt     ." preXt= " @ .HEX              CR
-    tab> DUP .eMnemo  ." mnemo= " @ COUNT TYPE  CR
+    tab> DUP .eMnemo  ." mnemo= " @ str# TYPE  CR
            DUP .eOps @ shwOps
     tab> ." ---------------------------------------"  CR 
     .eHlp @ tail help.  CR 
@@ -545,7 +543,7 @@ VARIABLE tabul \ табулятор
 
 : shwMnemo ( xt --) \ показать структуру мнемоники
     >BODY @
-    .mStr @ ." mnemo= " COUNT TYPE CR
+    .mStr @ ." mnemo= " str# TYPE CR
     ;
 
 : extCmd ( obj -- f)
@@ -559,6 +557,7 @@ VARIABLE tabul \ табулятор
     ; \ пример импользования: ' ANDS shwCmd
 
 #def langASM .( loaded) CR
+
 
 
 

@@ -1,13 +1,14 @@
 \ цепочки
 MODULE: chains
-\ связывание объектов в цепочечку
+\ связывание объектов в цепочку
 \ имя цепочки (VARIABLE) указывает (содержит адрес) на первый элемент,
 \ тот на второй... последний = 0
 \ name-->|next|---->|next|---->...-->|0|
 \        |hook|->a  |hook|->b  ...   |*|
 0 
 CELL -- .next \ указатель на следующее звено цепочки
-CELL -- .hook \ указатель на объект
+CELL -- .hook \ указатель на объект 
+              \ или крюк на который насаживается объект
 CONSTANT structNexus
 
 : newNexus ( -- nexus) \ создать звено цепочки (nexus)
@@ -26,7 +27,7 @@ CONSTANT structNexus
 
 EXPORT
 
-: +tie ( obj nexus1 --)  \ привязать объект obj в начало цепочки, перед nexus1 
+: +hung ( obj nexus1 --)  \ подвесить объект obj в начале цепочки, перед nexus1 
     newNexus 2DUP cpNexus ( o x1 x2 ) \ x2=x1
     OVER .next ! ( 0 x1) \ [x1]->x2 
     .hook !
@@ -60,8 +61,8 @@ DEFINITIONS
 
 EXPORT
 
-: tie+ ( obj nexus --)  \ привязать объект obj в конец цепочки
-    last +tie
+: hung+ ( obj nexus --)  \ подвесить объект obj в конеце цепочки
+    last +hung
     ;
 
 : extEach ( nexus xt -- i*x ) \ выполнить xt для всех объектов nexus
@@ -87,13 +88,13 @@ EXPORT
 
 \EOF пример использования
 chain: asd
-1 asd @ +tie
-2 asd @ +tie
-3 asd @ +tie
-4 asd @ tie+
+1 asd @ +hung
+2 asd @ +hung
+3 asd @ +hung
+4 asd @ hung+
 CR asd @ chPrint
-55 asd @ tie+
-66 asd @ +tie
+55 asd @ hung+
+66 asd @ +hung
 CR asd @ chPrint
 CR asd @ chCount DUP . 6 = [IF] .( test OK) [ELSE] .( test FAIL) [THEN] CR
 HEX

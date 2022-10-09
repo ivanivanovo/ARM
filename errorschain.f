@@ -21,7 +21,7 @@ MODULE: errorsChain
     : extList ( obj -- TRUE )
         DUP 
         .NumErr @ .
-        .TxtErr @ COUNT TYPE CR 
+        .TxtErr @ str# TYPE CR 
         TRUE ;
 
 EXPORT
@@ -31,7 +31,7 @@ EXPORT
     : err: ( n "описание" --)
         CREATE 
         structErr alloc DUP >R ,
-        R@ errChain @ +tie \ включить в цепочку
+        R@ errChain @ +hung \ включить в цепочку
         R@ .NumErr ! \ запомнить номер
         BL WORD DROP \ поглотить следующее слово, S"
         [CHAR] " PARSE str> \ взять описание
@@ -40,7 +40,7 @@ EXPORT
 
     : err? ( n -- c-addr u) \ найти описание ошибки
         DUP errChain @ ['] ext? extEach 
-        TUCK = IF DROP S" неизвестная ошибка"  ELSE COUNT THEN 
+        TUCK = IF DROP S" неизвестная ошибка"  ELSE str# THEN 
         ;
 
     : errList. ( -- ) \ распечатать известные ошибки

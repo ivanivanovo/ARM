@@ -1,15 +1,20 @@
 \ слова для работы в куче
 : alloc ( size -- adr) \ взять из кучи size байт 
     \ и проинициализировать их 0
-    DUP ALLOCATE THROW >R
-    R@ SWAP 0 FILL
-    R>
+    DUP ALLOCATE THROW 
+    DUP ROT 0 FILL
     ;
-: str> ( adr u -- c-adr) \ разместить строку со счетчиком в куче
-    0xFF AND \ ограничение 255 сиволов
-    DUP 1+ alloc \ a u a1
-    2DUP C! 
+
+\ очень длинные строки с большим счетчиком
+: str> ( adr u -- u-adr) \ разместить строку со счетчиком в куче
+    DUP CELL+ alloc \ a u a1
+    2DUP ! 
     DUP >R
-    1+ SWAP CMOVE
+    CELL+ SWAP CMOVE
     R>
     ;
+
+: str# ( u-adr -- adr u) \ преобразовать адрес строки с большим счетчиком к виду adr u
+    DUP CELL+ SWAP @  
+    ;
+

@@ -6,14 +6,14 @@
 REQUIRE 2CONSTANT lib/include/double.f
 REQUIRE toolbox  toolbox.f
 REQUIRE langASM langASM.f 
-S" ARMv6-Mset.f" INCLUDED
-
+S" ARMv6-Mset.f"    INCLUDED
+S" segments.f"      INCLUDED
 \ нужен пакет gcc-arm-none-eabi
 \ команда установки: sudo apt install gcc-arm-none-eabi
 #def as sh arm-none-eabi-as -o tst.o tst.s -g
 #def da sh arm-none-eabi-objdump -d tst.o 
 
-S" segments.f" INCLUDED
+S" filist.f"        INCLUDED
 
 CASE-INS ON
 

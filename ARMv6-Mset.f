@@ -40,10 +40,10 @@ Assm: CMP Rn, Rm                Encod: 0100001010mmmnnn                     Flag
 Assm: CMP Rn, Rm                Encod: 01000101nmmmmnnn                     Flags: NZCV     Cycles: 1       Action: APSR flags on Rn - Rm                           Notes: All to All
 Assm: CPSIE i                   Encod: 1011011001100010                                     Cycles: 1       Action: PRIMASK.PM := 0                                 Notes: i -> PRIMASK is affected
 Assm: CPSID i                   Encod: 1011011001110010                                     Cycles: 1       Action: PRIMASK.PM := 1                                 Notes: i -> PRIMASK is affected
-Assm: DMB                       Encod: 11110011101111111000111101011111                     Cycles: 4       Action:                                                 Notes: memory barrier
-Assm: DSB                       Encod: 11110011101111111000111101001111                     Cycles: 4       Action:                                                 Notes: acts as a special kind of memory barrier
+Assm: DMB                       Encod: 11110011101111111000111101011111                     Cycles: 4                                                               Notes: memory barrier
+Assm: DSB                       Encod: 11110011101111111000111101001111                     Cycles: 4                                                               Notes: acts as a special kind of memory barrier
 Assm: EORS Rdn, Rm              Encod: 0100000001mmmddd                     Flags: NZ       Cycles: 1       Action: Rd := Rd EOR Rm                                 Notes: 
-Assm: ISB                       Encod: 11110011101111111000111101101111                     Cycles: 4       Action:                                                 Notes: flushes the pipeline in the processor
+Assm: ISB                       Encod: 11110011101111111000111101101111                     Cycles: 4                                                               Notes: flushes the pipeline in the processor
 \ Assm: LDM Rn{!},<regslist>      Encod: 11001nnnllllllll                                     Cycles: 1+N     Action: R[i] := [Rn+4*i], i=[0-7]                       Notes: loads list of registers
 \                                                                                                                                                                     Notes: Rn! { ... } -> Rn not including, after Rn=Rn + 4*N 
 \                                                                                                                                                                     Notes: Rn, { .. Rn.. } -> Rn including  
