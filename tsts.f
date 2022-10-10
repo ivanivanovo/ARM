@@ -12,23 +12,25 @@
 \ EOF \ локальные отладочные тесты
 0x08000000 0 1024 createSeg: ROM-SEG
 ROM-SEG TO SEG
-
-l1: C[ adcs R3,r7    ]C \ enc @ .HEX CR  \ 417B 
-    C[ adds R1,r1    ]C \ enc @ .HEX CR  \ 1849 
-    C[ adds R1,r1,20 ]C \ enc @ .HEX CR  \ 3114 
-l2: C[ adds R1,20    ]C \ enc @ .HEX CR  \ 3114 
-    C[ adds R3 r7 7  ]C \ enc @ .HEX CR           \ 1DFB 
-    C[ adds R3 1     ]C \ enc @ .HEX CR           \ 3301 
-    C[ adds r1 R1 r2 ]C \ enc @ .HEX .( <---) CR  \ 1889 <---
-    C[ adds R1 r2    ]C \ enc @ .HEX .( <===) CR  \ 1889 <==
-    C[ add r1 r9     ]C \ enc @ .HEX CR           \ 4449 
-    C[ add r1 PC 20  ]C \ enc @ .HEX CR           \ A105 
-    C[ add PC r8     ]C \ enc @ .HEX CR           \ 44C7 
-    C[ add r8 PC     ]C \ enc @ .HEX CR           \ 44F8 
-    C[ add SP SP SP  ]C \ enc @ .HEX CR           \ 44ED 
-    C[ cmp r1 r2     ]C \ enc @ .bin CR           \ 100001010010001
-    C[ CPSIE i       ]C \ enc @ .HEX CR           \ B662
-    C[ DMB           ]C \ enc @ .UHEX CR          \ F3BF8F5F
+code tst  
+        adcs R3,r7     
+        adds R1,r1     
+    l1: adds R1,r1,20  
+        adds R1,20     
+        adds R3 r7 7   
+        adds R3 1      
+        adds r1 R1 r2  
+    l2: adds R1 r2     
+        add r1 r9      
+        add r1 PC 20   
+c;
+code tt add PC r8      
+        add r8 PC      
+        add SP SP SP   
+        cmp r1 r2      
+        CPSIE i        
+        DMB            
+c;
 
 helpasm cmp
 CR 

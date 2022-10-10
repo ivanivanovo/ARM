@@ -1,6 +1,5 @@
 \ создание списка подключенных файлов
 \ работает только в spf4, так как использует его особенности
-
 REQUIRE chain: chains.f \ для списка файлов
 REQUIRE str>   heap.f   \ куча
 
@@ -12,7 +11,7 @@ S" EVALUATE" str> CONSTANT srcEvaluate
     \ новое действие:
     SOURCE-NAME      \ получить имя текущего файла
     str>             \ скопировать его в кучу, ссылку
-    srcFiles @ +hung \ подвесить в начало цепочки
+    srcFiles @ +hung \ подвесить в начало цепочки srcFiles
     \ основное действие, как было
     [ ' (INCLUDED) BEHAVIOR ] LITERAL EXECUTE ; TO (INCLUDED)
 

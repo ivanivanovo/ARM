@@ -7,6 +7,7 @@ REQUIRE err:            errorschain.f
 REQUIRE enqueueNOTFOUND nf-ext.f
 REQUIRE alloc           heap.f
 REQUIRE >SEG            segments.f
+REQUIRE createLabel     labels.f
 
 #def NOT 0= ( x --T|F) \ инверсия результата
     \ усли x=0 - FALSE, иначе TRUE
@@ -321,13 +322,21 @@ MODULE: OperandsHandlers
     DEPTH lastDepth ! \ запомнить текущую глубину стека
     ;
 
-: c[ ( --) \ начать ассемблирование
+: C[ ( --) \ начать ассемблирование
     ASM? ON \ переключить режим
     ;
-: ]c ( --) \ закончить ассемблирование
+: ]C ( --) \ закончить ассемблирование
     0 asmcoder \ обработать последний операнд
     ASM? OFF \ переключить режим
     ;    
+
+: CODE ( <name> -- ) \ начать ассемблирование
+    >IN @ CREATE
+    >IN ! CodeType createLabel
+    c[
+    ;
+
+: C; ( -- ) ]C ; \ закончить ассемблирование
 
 : discoder ( )
     ;

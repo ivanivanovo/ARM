@@ -1,11 +1,9 @@
 REQUIRE >V vstack.f
 [WITHOUT?] BINARY : BINARY  2 BASE ! ; [THEN]
 \ ------------------------------------------------------------------------------
-\ 10 VSTACK BASES \ стек для хранения систем счисления
-\ : BASE: CREATE , DOES> @ BASE @ 1 BASES >STACK  BASE ! ;
-\ : :BASE CREATE   DOES> DROP BASES STACK> DROP BASE ! ;
 : BASE: CREATE , DOES> @ BASE @ 1 >V  BASE ! ; \ определяющее слово
 : :BASE CREATE   DOES> DROP V> DROP BASE ! ;   \ определяющее слово
+DECIMAL
 16 BASE: HEX[ \ временно работаем в шестнадцатеричной системе  
         :BASE ]HEX \ восстановить предыдущую систему
 10 BASE: DEC[ \ временно работаем в десятичной системе  
