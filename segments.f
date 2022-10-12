@@ -104,7 +104,7 @@ EXPORT
         >IN @ >R
             CREATE DUP >R ALLOCATE THROW
             HERE stuctSEG 0 FILL
-            HERE SegChain @ hung+ \ в цепочку
+            HERE SegChain hung+ \ в цепочку
             HERE .adr !
             R> HERE .size !
             HERE .lim !
@@ -120,12 +120,12 @@ EXPORT
         ;
 
     : segLabels ( -- nexus)
-        SEG .labels 
+        SEG .labels @
         ;
 
     : lsSEG ( -- ) \ выдать список всех сегментов
-        SegChain @ 
-        IF SegChain @ ['] (.seg) extEach 
+        SegChain  
+        IF SegChain ['] (.seg) extEach 
         THEN
         ;
 

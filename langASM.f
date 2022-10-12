@@ -267,7 +267,7 @@ MODULE: OperandsHandlers
     : <I> ( <c> --) \ проверка символа "i"
         BL WORD COUNT DROP C@ CHAR-UPPERCASE [CHAR] I = NOT IF errNoSym THROW THEN ;
     : i ( --)
-        ['] <I> encodes @ first .eXt ! ;
+        ['] <I> encodes first .eXt ! ;
 
 ;MODULE
 
@@ -332,7 +332,7 @@ MODULE: OperandsHandlers
          first ['] sacker CATCH ?DUP \ попытка кодирования 
         WHILE lastErrAsm ! \ неудача
            \ восстановить стек после сбоя
-           T@ tail DUP tail \ перейти на альтернативную кодировку, если есть 
+           T@ tail ?DUP \ перейти на альтернативную кодировку, если есть 
         WHILE Tdrop 
            T! \ сделать новый снимок стека
         REPEAT Tdrop errQuit \ выход с ошибкой
@@ -388,7 +388,7 @@ S"     " DROP @ CONSTANT 4BL \ 4 пробела как число
 
 : createEncode ( -- adr_strEncode) \ создать структуру кодировщика
     structEncode alloc    \ обнулить поля структуры
-    DUP encodes @ +hung    \ включиться в цепочку кодировщиков (в начало)
+    DUP encodes +hung    \ включиться в цепочку кодировщиков (в начало)
     0 OVER .eXt ! \ нету предИсполнителя
     DUP .eHlp  iniChain   \ пустая цепочка   
     DUP .eOps  iniChain   \ пустая цепочка   
@@ -417,7 +417,7 @@ S"     " DROP @ CONSTANT 4BL \ 4 пробела как число
     SWAP \ adr_strMnemo hlp 
     createEncode
     \ adr_strMnemo hlp adr_strEncode
-    TUCK .eHlp @ hung+ \ подключить помощника
+    TUCK .eHlp hung+ \ подключить помощника
     \ adr_strMnemo adr_strEncode
     OVER .mStr @ OVER .eMnemo ! 
     SWAP .mAlt @ hung+
@@ -465,7 +465,7 @@ S"     " DROP @ CONSTANT 4BL \ 4 пробела как число
 
 : fillEncode ( 0 n*[xt,tag] adr2 u2 -- 0) \ дополнить структуру кодировщика команды
     \ по шаблону adr2 u2
-    encodes @ first >R
+    encodes first >R
     >S
         S@ cliche&mask  
         R@ .eCliche !
@@ -474,7 +474,7 @@ S"     " DROP @ CONSTANT 4BL \ 4 пробела как число
             DUP S@ +listExcepTag inStr? 
             \ потребление операндов
         WHILE  
-            R@ .eOps @ createOp
+            R@ .eOps createOp
         REPEAT
     S> 2DROP
     ( 0)
@@ -492,7 +492,7 @@ S"     " DROP @ CONSTANT 4BL \ 4 пробела как число
 
 \ ============== слова помощники/описатели команд ===========================
 : chainHelp+ ( adr -- ) \ добавить Это место к помощникам
-    encodes @ first .eHlp @ hung+ 
+    encodes first .eHlp hung+ 
     ;
 
 : helper: ( tag <name> -- ) \ определить помощника

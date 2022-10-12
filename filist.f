@@ -11,7 +11,7 @@ S" EVALUATE" str> CONSTANT srcEvaluate
     \ новое действие:
     SOURCE-NAME      \ получить имя текущего файла
     str>             \ скопировать его в кучу, ссылку
-    srcFiles @ +hung \ подвесить в начало цепочки srcFiles
+    srcFiles +hung \ подвесить в начало цепочки srcFiles
     \ основное действие, как было
     [ ' (INCLUDED) BEHAVIOR ] LITERAL EXECUTE ; TO (INCLUDED)
 
@@ -19,7 +19,7 @@ S" EVALUATE" str> CONSTANT srcEvaluate
     \ имени текущего файла
     SOURCE-ID  0= IF srcTerminal ELSE
     SOURCE-ID  0< IF srcEvaluate ELSE 
-                  srcFiles @ first
+                  srcFiles first
                 THEN THEN   
     ;
 
@@ -29,7 +29,7 @@ S" EVALUATE" str> CONSTANT srcEvaluate
     ;
 
 : lsSrc ( --) \ вывести список файлов
-    srcFiles @
-    IF srcFiles @ ['] (lsSrc) extEach
+    srcFiles 
+    IF srcFiles ['] (lsSrc) extEach
     THEN
     ;

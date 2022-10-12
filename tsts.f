@@ -14,10 +14,10 @@
 ROM-SEG TO SEG
 code tts  
         adcs R3,r7     
-        adds R1,r1     
+        adds R1,r1  
     l1: adds R1,r1,20  
         adds R1,20     
-        adds R3 r7,-7   
+        adds R3 r7,7   
         adds R3 1      
         adds r1 R1 r2  
     l2: adds R1 r2     
@@ -32,7 +32,7 @@ code tt add PC r8
         DMB 
 c;
 hex[ 
-c[ B tts ]C             
+ c[ B tts ]C             
 ]hex
 
 helpasm cmp

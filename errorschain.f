@@ -31,7 +31,7 @@ EXPORT
     : err: ( n "описание" --)
         CREATE 
         structErr alloc DUP >R ,
-        R@ errChain @ +hung \ включить в цепочку
+        R@ errChain +hung \ включить в цепочку
         R@ .NumErr ! \ запомнить номер
         BL WORD DROP \ поглотить следующее слово, S"
         [CHAR] " PARSE str> \ взять описание
