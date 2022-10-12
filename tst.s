@@ -8,6 +8,8 @@
 tst:
 nop 
 nop  
+nop  
+    adds R3,r7,-7
     add  sp,sp,sp
     adr  r0, l2
     beq  l2

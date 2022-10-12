@@ -27,7 +27,7 @@ Assm: ADD  Rd, PC, imm!4        Encod: 10100dddiiiiiiii                         
 Assm: ANDS Rdn, Rm              Encod: 0100000000mmmddd                     Flags: NZ       Cycles: 1       Action: Rd := Rd AND Rm                                 Notes: 
 Assm: ASRS Rd,  Rm, imm         Encod: 00010iiiiimmmddd                     Flags: NZC      Cycles: 1       Action: Rd := Rm ASR imm5                               Notes: Allowed shifts 1-32
 Assm: ASRS Rdn, Rm              Encod: 0100000100mmmddd                     Flags: NZC      Cycles: 1       Action: Rd := Rd ASR Rs[7:0]                            Notes: C flag unaffected if Rs[7:0] is 0   
-\ Assm: B label                   Encod: 11100iiiiiiiiiii                                     Cycles: 3       Action: PC := label                                     Notes: label=PC + Simm11*2
+Assm: B label                   Encod: 11100iiiiiiiiiii                                     Cycles: 3       Action: PC := label                                     Notes: label=PC + Simm11*2
 \ Assm: B{cond} label             Encod: 1101cccciiiiiiii                                     Cycles: 1|3     Action: If {cond} then PC := label                      Notes: label=PC + Simm8*2
 Assm: BICS Rdn, Rm              Encod: 0100001110mmmddd                     Flags: NZ       Cycles: 1       Action: Rd := Rd AND NOT Rm                             Notes: 
 Assm: BKPT imm                  Encod: 10111110iiiiiiii                                                     Action: BreakPoint                                      Notes:   

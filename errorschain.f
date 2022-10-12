@@ -40,7 +40,7 @@ EXPORT
 
     : err? ( n -- c-addr u) \ найти описание ошибки
         DUP errChain @ ['] ext? extEach 
-        TUCK = IF DROP S" неизвестная ошибка"  ELSE str# THEN 
+        TUCK = IF THROW ELSE str# THEN 
         ;
 
     : errList. ( -- ) \ распечатать известные ошибки

@@ -126,6 +126,13 @@ ASM? ON
     ;
 
 \ ============ Обработка операндов ==================================
+: /2? ( n -- n/2) \ проверка на делимость и деление  
+    DUP 1 AND IF errImm!2 THROW ELSE 2/  THEN
+    ;
+
+: /4? ( n -- n/4) \ проверка на делимость и деление
+    DUP 3 AND IF errImm!4 THROW ELSE 4 / THEN
+    ;
 
 : itisReg? ( r x -- r x f) \ TRUE - регистр
     DEPTH 1 > 
@@ -139,6 +146,18 @@ ASM? ON
 
 : Reg# ( #Reg -- c-adr u) \ дать строку с цифровым именем регистра
     S>D DEC[ <# #S [CHAR] R HOLD #> ]DEC 
+    ;
+
+: [adr] ( adr mask -- ) \ запомнить адрес метки в текущей команде
+    >R finger - \ adr-PC
+    /2? 
+    ( проверить на вместимость)
+     R@ AND 
+    R> >enc
+    ;
+
+: LabelName ( [adr] -- adr u) \ дать строку с именем метки
+    DROP ." метка"
     ;
 
 : RegName ( #Reg -- c-adr u) \ дать строку с именем регистра
@@ -159,10 +178,10 @@ ASM? ON
     DIS> ( mask -- x) enc>
     ; 
 
-\ : <label> \ метка
-\     ASM> ( adr mask -- adr-PC) SWAP enc - SWAP >enc
-\     DIS> ( mask -- c-adr u ) enc> LabelName
-\     ;
+: <label> \ метка
+    ASM> ( adr mask --) [adr] 
+    DIS> ( mask -- c-adr u ) enc> LabelName
+    ;
 
 : inStr? ( x adr u -- f) \ x есть в строке adr u?
     ROT FALSE 2SWAP OVER + SWAP
@@ -209,48 +228,50 @@ CELL -- .eOps       \ ->цепь операндов
 CONSTANT structEncode
 
 0 \ структура помощника
-CELL -- .hLink \ связь
 CELL -- .hTag  \ метка
 CELL -- .hStr  \ ->строка описания
 CONSTANT structHelper
 
 
-
 MODULE: OperandsHandlers
 \ ############ Обработчики операндов ###########################
 
-\ обработчик|-тэг-|--операнд-----|-синоним|
-' <Reg>     CHAR d 2CONSTANT Rd  
-' <Reg>     CHAR n 2CONSTANT Rn  
-' <Reg>     CHAR m 2CONSTANT Rm  
-' <Reg>     CHAR t 2CONSTANT Rt  
-' <Imm>     CHAR i 2CONSTANT imm
-:NONAME ( {[r',x']} [r,x] mask -- [r',x']) >R need_two R> <Reg> ;
-    \ в отсутствии Rd ([r',x']), Rn ([r,x]) оставит свой дубликат ([r,x]=[r',x'])
-            CHAR n 2CONSTANT Rnd   
-:NONAME ( {[r,x]} [r,x] mask --) >R maybe_duplex R> <Reg> ; 
-            CHAR d 2CONSTANT Rdn  \ : Rdn, Rdn ;
-:NONAME ( {PC,} mask --) DROP itisReg? IF PC assert= THEN ;
-            CHAR * 2CONSTANT {PC}
-:NONAME (  PC mask --)   DROP PC assert= ;
-            CHAR c 2CONSTANT PC  
-:NONAME ( {SP,} mask --) DROP itisReg? IF SP assert= THEN ;
-            CHAR * 2CONSTANT {SP} 
-:NONAME (  SP mask --)   DROP SP assert= ;
-            CHAR p 2CONSTANT SP  
-:NONAME ( imm!4 mask --) 
-    >R DUP 3 AND IF errImm!4 THROW ELSE 4 / THEN R> <Imm> ;
-            CHAR i 2CONSTANT imm!4
-:NONAME ( imm!2 mask --) 
-    >R DUP 1 AND IF errImm!2 THROW ELSE 2/  THEN R> <Imm> ;
-            CHAR i 2CONSTANT imm!2
-: <I> ( <c> --) \ проверка символа "i"
-    BL WORD COUNT DROP C@ CHAR-UPPERCASE [CHAR] I = NOT IF errNoSym THROW THEN ;
-: i ( --)
-    ['] <I> encodes @ first .eXt ! ;
-;MODULE
-\ ===================================================================
+    \ обработчик|-тэг-|--операнд-----|-синоним|
+    ' <Reg>     CHAR d 2CONSTANT Rd  
+    ' <Reg>     CHAR n 2CONSTANT Rn  
+    ' <Reg>     CHAR m 2CONSTANT Rm  
+    ' <Reg>     CHAR t 2CONSTANT Rt  
+    ' <Imm>     CHAR i 2CONSTANT imm
+    ' <label>   CHAR i 2CONSTANT label
 
+    :NONAME ( {[r',x']} [r,x] mask -- [r',x']) >R need_two R> <Reg> ;
+        \ в отсутствии Rd ([r',x']), Rn ([r,x]) оставит свой дубликат ([r,x]=[r',x'])
+                CHAR n 2CONSTANT Rnd   
+    :NONAME ( {[r,x]} [r,x] mask --) >R maybe_duplex R> <Reg> ; 
+                CHAR d 2CONSTANT Rdn  \ : Rdn, Rdn ;
+    :NONAME ( {PC,} mask --) DROP itisReg? IF PC assert= THEN ;
+                CHAR * 2CONSTANT {PC}
+    :NONAME (  PC mask --)   DROP PC assert= ;
+                CHAR c 2CONSTANT PC  
+    :NONAME ( {SP,} mask --) DROP itisReg? IF SP assert= THEN ;
+                CHAR * 2CONSTANT {SP} 
+    :NONAME (  SP mask --)   DROP SP assert= ;
+                CHAR p 2CONSTANT SP  
+    :NONAME ( imm!4 mask --) 
+        >R /4? R> <Imm> ;
+                CHAR i 2CONSTANT imm!4
+    :NONAME ( imm!2 mask --) 
+        >R /2? R> <Imm> ;
+                CHAR i 2CONSTANT imm!2
+
+    : <I> ( <c> --) \ проверка символа "i"
+        BL WORD COUNT DROP C@ CHAR-UPPERCASE [CHAR] I = NOT IF errNoSym THROW THEN ;
+    : i ( --)
+        ['] <I> encodes @ first .eXt ! ;
+
+;MODULE
+
+\ ===================================================================
 : +listExcepTag ( adr u -- adr' u') \ добавить к строке тэги исключения
     \ строка adr u не изменяется, изменяется её временная копия
     >S S" cp*" +>S S> ; 
@@ -282,7 +303,7 @@ MODULE: OperandsHandlers
 
 : T! DEPTH T >STACK ; \ запомнит стек на всю глубину
 : T@ DEPTH T @ @ MIN nDROP \ очистить стек под восстановление
-     T STACK@ DROP \ востановить данне стека
+     T STACK@ DROP \ востановить данные стека
      ;
 : Tdrop T STACK>DROP ; \ убрать запись восстановления 
 \ ===================================================================
@@ -311,8 +332,9 @@ MODULE: OperandsHandlers
          first ['] sacker CATCH ?DUP \ попытка кодирования 
         WHILE lastErrAsm ! \ неудача
            \ восстановить стек после сбоя
-          T@ tail ?DUP \ перейти на альтернативную кодировку
-        WHILE Tdrop T! \ сделать новый снимок стека
+           T@ tail DUP tail \ перейти на альтернативную кодировку, если есть 
+        WHILE Tdrop 
+           T! \ сделать новый снимок стека
         REPEAT Tdrop errQuit \ выход с ошибкой
         THEN
         Tdrop \ нормальный выход, сброс снимка
@@ -331,8 +353,7 @@ MODULE: OperandsHandlers
     ;    
 
 : CODE ( <name> -- ) \ начать ассемблирование
-    >IN @ CREATE
-    >IN ! CodeType createLabel
+    CodeType createLabel
     c[
     ;
 
