@@ -31,7 +31,7 @@ DEFINITIONS
 
     : cpNexus ( nexusA nexusB --) \ копировать nexusA в nexusB
         >R DUP tail  R@ .next !
-               first @ R> .hook !
+               first R> .hook !
         ;
 
     : exCnt ( i obj -- i+1 f) \ счетчик элементов в цепи
@@ -88,13 +88,17 @@ EXPORT
         last hung
         ;
 
-    : extEach ( nexus xt -- i*x ) \ выполнить xt для всех объектов nexus
+    : extEach ( j*x nexus xt -- i*x ) \ выполнить xt для всех объектов nexus
         \ xt ( obj -- i*x f )
         \ xt принимает адрес объекта и выдает флаг,
         \ TRUE - продолжить обход
         \ FALSE - завершить обход
-        SWAP 2>R
-        BEGIN 2R@ NIP first WHILE 2R@ first SWAP EXECUTE WHILE 2R@ NIP tail WHILE 2R> tail 2>R REPEAT THEN THEN
+        SWAP 2>R \ R:xt nx      
+        \ нужно убирать свои параметры со стека данных,
+        \ чтоб xt мог использовать стек по своему усмотрению
+        BEGIN 2R@ first SWAP EXECUTE WHILE 
+              2R> tail TUCK 2>R WHILE 
+        REPEAT THEN
         2R> 2DROP
         ;
 

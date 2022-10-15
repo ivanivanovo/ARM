@@ -18,3 +18,4 @@ _autosave-*
 *.log
 *.d
 /*.txt
+*.hex

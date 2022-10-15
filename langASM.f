@@ -6,7 +6,7 @@ REQUIRE chain:          chains.f
 REQUIRE err:            errorschain.f
 REQUIRE enqueueNOTFOUND nf-ext.f
 REQUIRE alloc           heap.f
-REQUIRE >SEG            segments.f
+REQUIRE >Seg            segments.f
 REQUIRE createLabel     labels.f
 
 #def NOT 0= ( x --T|F) \ инверсия результата
@@ -148,10 +148,14 @@ ASM? ON
     S>D DEC[ <# #S [CHAR] R HOLD #> ]DEC 
     ;
 
+: [PC] ( -- PC) \ программный счетчик
+    finger 4 + 
+    ;
+
 : [adr] ( adr mask -- ) \ запомнить адрес метки в текущей команде
-    >R finger - \ adr-PC
+    >R [PC] - \ adr-PC
     /2? 
-    ( проверить на вместимость)
+    ( проверить на вместимость !!!!!!!!!!)
      R@ AND 
     R> >enc
     ;
@@ -313,7 +317,7 @@ MODULE: OperandsHandlers
 : errQuit ( --)
     0 operator ! 
     SOURCE TYPE CR 
-    >IN @ 2- SPACES ." ^-" lastErrAsm @ err? TYPE 
+    >IN @ 2- SPACES ." ^-- " lastErrAsm @ err? TYPE 
     QUIT \ THROW
     ; 
 
@@ -333,13 +337,13 @@ MODULE: OperandsHandlers
         WHILE lastErrAsm ! \ неудача
            \ восстановить стек после сбоя
            T@ tail ?DUP \ перейти на альтернативную кодировку, если есть 
-        WHILE Tdrop 
-           T! \ сделать новый снимок стека
-        REPEAT Tdrop errQuit \ выход с ошибкой
+        WHILE Tdrop  T! \ сделать новый снимок стека
+        REPEAT errQuit \ выход с ошибкой
         THEN
         Tdrop \ нормальный выход, сброс снимка
         \ сохранить полученную команду в текущем сегменте
-        enc @ DUP 0x10000 U< IF W>SEG ELSE >SEG THEN
+        \ старшее слово (если не 0) пишется первым
+        enc @ WORD-SPLIT ?DUP IF W>Seg THEN W>Seg 
     THEN
     DEPTH lastDepth ! \ запомнить текущую глубину стека
     ;
@@ -354,7 +358,7 @@ MODULE: OperandsHandlers
 
 : CODE ( <name> -- ) \ начать ассемблирование
     CodeType createLabel
-    c[
+    C[
     ;
 
 : C; ( -- ) ]C ; \ закончить ассемблирование
