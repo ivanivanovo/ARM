@@ -18,7 +18,6 @@ ALSO ASSEMBLER DEFINITIONS
 VARIABLE ASM? \ переменная состояния, TRUE кодирование, FALSE декодирование 
 VARIABLE operator 0 operator ! \ текущий оператор (команда)
 VARIABLE lastDepth \ глубина стека перед отсрочкой оператора
-VARIABLE lastErrAsm \ код последней ошибки ассемблера
 VARIABLE enc \ текущий код команды
 chain: encodes \ кончик цепочки енкодов
 
@@ -309,16 +308,64 @@ MODULE: OperandsHandlers
      T STACK@ DROP \ востановить данные стека
      ;
 : Tdrop T STACK>DROP ; \ убрать запись восстановления 
+
 \ ===================================================================
-\ TODO: сделать накопитель ошибок
-\ если все альтернативы дали сбой - выдать весь список
-\ если хоть одна сработала - забыть про них
-: errQuit ( --)
-    0 operator ! 
-    SOURCE TYPE CR 
-    >IN @ 2- SPACES ." ^-- " lastErrAsm @ err? TYPE 
-    QUIT \ THROW
-    ; 
+MODULE: errorEncode
+    \ сделать накопитель ошибок
+    \ если все альтернативы дали сбой - выдать весь список
+    \ если хоть одна сработала - забыть про них
+    \ TODO:
+    \ неверно отрабатывает ошибку в первой строке
+
+    CREATE errSrc 256 ALLOT \ буфер строки исходника
+    VARIABLE errFile \ файл исходника
+    VARIABLE errStr  \ строка исходника
+    VARIABLE errIN   \ позиция в строке исходника
+    chain: errAsm    \ накопитель ошибок
+    
+    : extErrs ( pos #err -- pos TREUE)
+        OVER 2- SPACES ." ^-- " err? TYPE CR
+        TRUE
+        ;
+
+    : extErr ( # #' -- # #' f)
+        2DUP = NOT 
+        ;
+
+    : new? ( #  -- f)
+        \ проверить наличие такого номера в списке
+        errAsm chCount 0= 
+        IF DROP TRUE 
+        ELSE errAsm ['] extErr extEach = NOT
+        THEN
+        ;
+
+EXPORT
+    : SOURCE! ( --) \ запомнить источник возможных проблем
+        curSrc errFile ! 
+        CURSTR @ errStr !
+        SOURCE DUP errSrc C! errSrc 1+  SWAP CMOVE 
+        >IN @ errIN !
+        ;
+
+    : errClean ( --) \ очистить список ошибок
+        errAsm chClean
+        ;
+
+    : +errAsm ( # --) \ добавить новый код ошибки к списку ошибок
+        DUP new?
+        IF errAsm +hung ELSE DROP THEN
+        ;
+
+    : errQuit ( --) \ выход с ошибкой
+        0 operator ! 
+        CR ." Ошибка: " errFile @ str# TYPE ." :" errStr @ . ." :" errIN @ . CR
+        errSrc COUNT TYPE CR 
+        errIN @ errAsm ['] extErrs extEach
+        QUIT \ THROW
+        ;
+
+;MODULE
 
 : asmcoder ( j*x nexus -- i*x ) 
     \ на стеке лежат операнды предыдущего оператора/команды
@@ -333,7 +380,7 @@ MODULE: OperandsHandlers
         \ цикл перебора альтернативных кодировок
         BEGIN T@  \ восстановить стек
          first ['] sacker CATCH ?DUP \ попытка кодирования 
-        WHILE lastErrAsm ! \ неудача
+        WHILE +errAsm \ неудача, накопление ошибок
            \ восстановить стек после сбоя
            T@ tail ?DUP \ перейти на альтернативную кодировку, если есть 
         WHILE Tdrop  T! \ сделать новый снимок стека
@@ -343,6 +390,8 @@ MODULE: OperandsHandlers
         \ сохранить полученную команду в текущем сегменте
         \ старшее слово (если не 0) пишется первым
         enc @ WORD-SPLIT ?DUP IF W>Seg THEN W>Seg 
+        errClean \ очистить список ошибок
+        SOURCE!
     THEN
     DEPTH lastDepth ! \ запомнить текущую глубину стека
     ;

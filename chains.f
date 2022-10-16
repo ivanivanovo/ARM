@@ -45,9 +45,12 @@ DEFINITIONS
         ;
 
     : exCnt ( i obj -- i+1 f) \ счетчик элементов в цепи
-        DROP 1+ TRUE ;
+        DROP 1+ TRUE 
+        ;
+
     : exPrint ( obj -- f) \ печать объектов
-        . TRUE ;
+        . TRUE 
+        ;
 
 EXPORT
     : onHook ( obj nexus --) \ подвесить объект obj на hook
@@ -79,7 +82,7 @@ EXPORT
         DUP tail 
         IF DUP tail DUP ROT cpNexus 
            FREE THROW 
-        ELSE DROP THEN
+        ELSE FALSE SWAP .used ! THEN
         ;
 
     : iniChain ( adr -- ) \ проинициализировать цепочку по адресу
@@ -132,6 +135,12 @@ EXPORT
         ['] exPrint extEach
         ;
 
+    : chClean ( nexus --) \ очистить цепочку
+        \ отсюда и до конца
+        BEGIN DUP delnexus DUP tail 0= UNTIL
+        delnexus
+        ;  
+
 ;MODULE 
 
 
@@ -151,5 +160,7 @@ CR asd chPrint
 0 asd +hung
 CR asd chPrint
 CR asd chCount DUP . 7 = [IF] .( test OK) [ELSE] .( test FAIL) [THEN] CR
+CR asd tail tail chClean asd chPrint 
+CR
 HEX
 \ QUIT
