@@ -12,6 +12,7 @@
 \ EOF \ локальные отладочные тесты
 0x08000000 0 1024 createSeg: ROM-SEG
 ROM-SEG TO SEG
+
 code tts  
         adcs R3,r7     
         adds R1,r1  

@@ -13,7 +13,8 @@ MODULE: errorsChain
     : ext? ( n errObj -- n TRUE| adrErrStr FALSE )
         \ поисковый бегунок
         >R ( n)
-        R@ .NumErr @ OVER = ( n f)
+        R@ .NumErr @ 
+        OVER = ( n f)
         IF DROP R@ .TxtErr @ FALSE ELSE TRUE THEN
         R> DROP
         ;
@@ -22,7 +23,8 @@ MODULE: errorsChain
         DUP 
         .NumErr @ .
         .TxtErr @ str# TYPE CR 
-        TRUE ;
+        TRUE 
+        ;
 
 EXPORT
 
@@ -30,21 +32,22 @@ EXPORT
 
     : err: ( n "описание" --)
         CREATE 
-        structErr alloc DUP >R ,
-        R@ errChain +hung \ включить в цепочку
+        structErr alloc >R 
         R@ .NumErr ! \ запомнить номер
         BL WORD DROP \ поглотить следующее слово, S"
         [CHAR] " PARSE str> \ взять описание
-        R> .TxtErr !
+        R@ .TxtErr !
+        R@ errChain +hung \ включить в цепочку
+        R> ,
         DOES> @ .NumErr @ ;
 
     : err? ( n -- c-addr u) \ найти описание ошибки
-        DUP errChain @ ['] ext? extEach 
+        DUP errChain ['] ext? extEach 
         TUCK = IF THROW ELSE str# THEN 
         ;
 
     : errList. ( -- ) \ распечатать известные ошибки
-        errChain @ ['] extList extEach
+        errChain  ['] extList extEach
         ;
 
 ;MODULE

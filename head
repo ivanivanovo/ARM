@@ -1,10 +1,11 @@
 #! /usr/bin/spf4
-\ CASE-INS OFF
+CASE-INS OFF
  \ REQUIRE SEE lib/ext/disasm.f
  \ REQUIRE INCLUDED_L ~mak/listing2.f
-
-REQUIRE 2CONSTANT lib/include/double.f
+: bye BYE ;
+VARIABLE dbg dbg OFF
 \ зависимости
+REQUIRE 2CONSTANT lib/include/double.f
 REQUIRE toolbox     toolbox.f
 REQUIRE >Seg        segments.f
 REQUIRE langASM     langASM.f 
@@ -16,10 +17,12 @@ S" ARMv6-Mset.f" INCLUDED
 
 \ нужен пакет gcc-arm-none-eabi
 \ команда установки: sudo apt install gcc-arm-none-eabi
-#def as sh arm-none-eabi-as -o tst.o tst.s -g
-#def da sh arm-none-eabi-objdump -d tst.o 
+#def as sh arm-none-eabi-as -o test-af.o test-af.s -g
+#def da sh arm-none-eabi-objdump -d test-af.o 
+#def hx sh arm-none-eabi-objcopy -O ihex -j .text test-af.o test-af.hex 
 
 
 CASE-INS ON
 
-S" tsts.f" INCLUDED
+\ S" tsts.f" INCLUDED
+S" test-af.f" INCLUDED

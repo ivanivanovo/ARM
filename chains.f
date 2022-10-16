@@ -10,12 +10,17 @@ MODULE: chains
     CELL -- .next \ указатель на следующее звено цепочки
     CELL -- .hook \ указатель на объект 
                   \ или крюк на который насаживается объект
+    CELL -- .used \ признак использования крюка, TRUE или FALSE
+    \ введение отдельного признака использования крюка 
+    \ позволяетт помещать в цепочку не только адреса объектов,
+    \ но и любый числа, включая 0
     CONSTANT structNexus
 
     : newNexus ( -- nexus) \ создать звено цепочки (nexus)
         structNexus ALLOCATE THROW 
-        0 OVER .next ! \ =0
-        0 OVER .hook ! \ =0
+        0     OVER .next ! \ =0
+        0     OVER .hook ! \ =0
+        FALSE OVER .used ! \ =крюк пустой
         ;
 EXPORT
 
@@ -29,9 +34,14 @@ EXPORT
 
 DEFINITIONS
 
+    : used? ( nexus -- f) \ флаг использования крюка
+        .used @ 
+        ;
+
     : cpNexus ( nexusA nexusB --) \ копировать nexusA в nexusB
         >R DUP tail  R@ .next !
-               first @ R> .hook !
+           DUP first R@ .hook !
+               used? R> .used !
         ;
 
     : exCnt ( i obj -- i+1 f) \ счетчик элементов в цепи
@@ -40,23 +50,28 @@ DEFINITIONS
         . TRUE ;
 
 EXPORT
+    : onHook ( obj nexus --) \ подвесить объект obj на hook
+        TUCK .hook !
+        TRUE SWAP .used !
+        ;
+
     : +hung ( obj nexus --)  \ подвесить объект obj перед этим местом цепочки
         \ либо на пустой крюк этого места
-        DUP first 
+        DUP used? 
         IF newNexus 2DUP cpNexus ( o x1 x2 ) \ x2=x1
            OVER .next ! ( 0 x1) \ [x1]->x2 
         THEN
-        .hook !
+        onHook
         ;
 
     : hung ( obj nexus --) \ подвесить объект obj после этого места цепочки     
         \ либо на пустой крюк этого места
-        DUP first
+        DUP used?
         IF newNexus >R \ o x R:x'
            DUP tail R@ .next ! \ o x R:x'
            R@ SWAP .next ! R> \ x'
         THEN
-        .hook !
+        onHook
         ;
     
     : delnexus ( nexus --) \ удалить звено из цепочки и освободить память
@@ -88,13 +103,24 @@ EXPORT
         last hung
         ;
 
-    : extEach ( nexus xt -- i*x ) \ выполнить xt для всех объектов nexus
+    : extEach ( j*x nexus xt -- i*x ) \ выполнить xt для всех объектов nexus
         \ xt ( obj -- i*x f )
         \ xt принимает адрес объекта и выдает флаг,
         \ TRUE - продолжить обход
         \ FALSE - завершить обход
-        SWAP 2>R
-        BEGIN 2R@ NIP first WHILE 2R@ first SWAP EXECUTE WHILE 2R@ NIP tail WHILE 2R> tail 2>R REPEAT THEN THEN
+        \ 
+        \ цикл выполняется пока:
+        \     есть объект на крючке
+        \ И   xt возвращает TRUE
+        \ И   цепочка не закончилась
+        \ 
+        \ циклу нужно убирать свои параметры со стека данных,
+        \ чтоб не мешать xt использовать стек по своему усмотрению
+        SWAP 2>R \ R:xt nx      
+        BEGIN 2R@ DUP used? 
+            IF    first SWAP EXECUTE ELSE NIP THEN 
+            WHILE 2R> tail TUCK 2>R \ на следующий
+        WHILE REPEAT THEN
         2R> 2DROP
         ;
 
@@ -118,11 +144,12 @@ chain: asd
 6 asd hung+
 1 asd +hung
 CR asd chPrint
-ALSO chains CR \ EOF
 34 asd tail tail hung
 CR asd chPrint
 asd tail tail tail delnexus
 CR asd chPrint
-CR asd chCount DUP . 6 = [IF] .( test OK) [ELSE] .( test FAIL) [THEN] CR
+0 asd +hung
+CR asd chPrint
+CR asd chCount DUP . 7 = [IF] .( test OK) [ELSE] .( test FAIL) [THEN] CR
 HEX
-QUIT
+\ QUIT
