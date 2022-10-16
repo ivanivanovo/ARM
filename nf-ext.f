@@ -1,6 +1,7 @@
 \ 10.Feb.2006 Fri 20:44
 \ Unobtrusive 'NotFound' Extension
 \ ~pinka/samples/2006/core/trans/nf-ext.f
+DECIMAL \ десятичная система счисления
 
 : enqueueNOTFOUND ( xt -- )
 \ добавить в конец списка трансляторов слова

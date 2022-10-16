@@ -12,7 +12,6 @@ REQUIRE createLabel     labels.f
 #def NOT 0= ( x --T|F) \ инверсия результата
     \ усли x=0 - FALSE, иначе TRUE
 
-DECIMAL \ десятичная система счисления
 VOCABULARY ASSEMBLER
 ALSO ASSEMBLER DEFINITIONS
 
@@ -573,7 +572,7 @@ VARIABLE tabul \ табулятор
     tab> DUP .eMask   ." mask=  " @ 32bit.            CR 
     tab> DUP .eXt     ." preXt= " @ .HEX              CR
     tab> DUP .eMnemo  ." mnemo= " @ str# TYPE  CR
-           DUP .eOps @ shwOps
+         DUP .eOps @ shwOps
     tab> ." ---------------------------------------"  CR 
     .eHlp @ tail help.  CR 
     ;
