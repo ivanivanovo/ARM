@@ -314,13 +314,17 @@ MODULE: errorEncode
     \ сделать накопитель ошибок
     \ если все альтернативы дали сбой - выдать весь список
     \ если хоть одна сработала - забыть про них
-    \ TODO:
-    \ неверно отрабатывает ошибку в первой строке
 
-    CREATE errSrc 256 ALLOT \ буфер строки исходника
-    VARIABLE errFile \ файл исходника
-    VARIABLE errStr  \ строка исходника
-    VARIABLE errIN   \ позиция в строке исходника
+    0 \ структура описания источника ошибок
+    CELL -- .file   \ --> в каком файле определена
+    CELL -- .line   \ в какой строке
+    CELL -- .pos    \ на какой позиции
+    256  -- .src    \ буфер строки
+    CONSTANT structSrc
+
+    CREATE srcA structSrc ALLOT \ текущий оператор (исходик)
+    CREATE srcB structSrc ALLOT \ отложенный оператор (исходик)
+
     chain: errAsm    \ накопитель ошибок
     
     : extErrs ( pos #err -- pos TREUE)
@@ -341,13 +345,19 @@ MODULE: errorEncode
         ;
 
 EXPORT
-    : SOURCE! ( --) \ запомнить источник возможных проблем
-        curSrc errFile ! 
-        CURSTR @ errStr !
-        SOURCE DUP errSrc C! errSrc 1+  SWAP CMOVE 
-        >IN @ errIN !
+
+    : S! ( adr u adr1 -- ) \ записать строку adr u в adr1 как строку со счётчиком
+        >R 0xFF AND DUP R@ C! R> 1+ SWAP CMOVE
         ;
 
+    : SOURCE! ( adr -- ) \ запомнить источник возможных проблем
+        >R
+        curSrc   R@ .file !
+        CURSTR @ R@ .line !
+        >IN    @ R@ .pos  !
+        SOURCE   R> .src S!
+        ;
+    
     : errClean ( --) \ очистить список ошибок
         errAsm chClean
         ;
@@ -359,13 +369,27 @@ EXPORT
 
     : errQuit ( --) \ выход с ошибкой
         0 operator ! 
-        CR ." Ошибка: " errFile @ str# TYPE ." :" errStr @ . ." :" errIN @ . CR
-        errSrc COUNT TYPE CR 
-        errIN @ errAsm ['] extErrs extEach
+        CR ." Ошибка: " srcA >R
+        R@ .file @ str# TYPE ." :" R@ .line @ . ." :" R@ .pos @ . CR
+        R@ .src COUNT TYPE CR 
+        R> .pos @ errAsm ['] extErrs extEach
         QUIT \ THROW
         ;
 
+    : srcSWAP ( --)    
+        srcB srcA structSrc CMOVE
+        \ захватить текущую строку исходника для отладки
+        srcB SOURCE! 
+        ;
+
 ;MODULE
+
+: overJump ( nexus -- nexus') \ прыжок оператора черз свои параметры
+    \ заменить оператор на предыдущий,
+    operator @ SWAP operator ! \ а текущий будет ждать своих операндов
+    \ заменить исходник на предыдущий,
+    srcSWAP 
+    ;
 
 : asmcoder ( j*x nexus -- i*x ) 
     \ на стеке лежат операнды предыдущего оператора/команды
@@ -373,8 +397,7 @@ EXPORT
     IF \ предисполнитель
         DUP first .eXt @ ?DUP IF EXECUTE THEN
     THEN
-    \ заменить оператор на предыдущий,
-    operator @ SWAP operator ! \ а текущий будет ждать своих операндов
+    overJump
     ?DUP 
     IF T! \ сделать снимок стека
         \ цикл перебора альтернативных кодировок
@@ -384,14 +407,13 @@ EXPORT
            \ восстановить стек после сбоя
            T@ tail ?DUP \ перейти на альтернативную кодировку, если есть 
         WHILE Tdrop  T! \ сделать новый снимок стека
-        REPEAT errQuit \ выход с ошибкой
+        REPEAT errQuit  \ выход с ошибкой
         THEN
         Tdrop \ нормальный выход, сброс снимка
         \ сохранить полученную команду в текущем сегменте
         \ старшее слово (если не 0) пишется первым
         enc @ WORD-SPLIT ?DUP IF W>Seg THEN W>Seg 
         errClean \ очистить список ошибок
-        SOURCE!
     THEN
     DEPTH lastDepth ! \ запомнить текущую глубину стека
     ;

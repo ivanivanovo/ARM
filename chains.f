@@ -143,24 +143,24 @@ EXPORT
 
 ;MODULE 
 
-
-\EOF пример использования и тесты
-chain: asd
-3 asd  +hung
-4 asd  hung+
-2 asd  +hung
-5 asd  hung+
-6 asd hung+
-1 asd +hung
-CR asd chPrint
-34 asd tail tail hung
-CR asd chPrint
-asd tail tail tail delnexus
-CR asd chPrint
-0 asd +hung
-CR asd chPrint
-CR asd chCount DUP . 7 = [IF] .( test OK) [ELSE] .( test FAIL) [THEN] CR
-CR asd tail tail chClean asd chPrint 
-CR
-HEX
-\ QUIT
+\ примеры использования и тест
+SOURCE-ID 3 = 
+[IF]
+    chain: asd
+    3 asd  +hung
+    4 asd  hung+
+    2 asd  +hung
+    5 asd  hung+
+    6 asd hung+
+    1 asd +hung
+    CR asd chPrint
+    34 asd tail tail hung
+    CR asd chPrint
+    asd tail tail tail delnexus
+    CR asd chPrint
+    0 asd +hung
+    CR asd chPrint
+    CR asd chCount DUP . 7 = [IF] .( test OK) [ELSE] .( test FAIL) [THEN] CR
+    CR asd tail tail chClean asd chPrint 
+    CR
+[THEN] 

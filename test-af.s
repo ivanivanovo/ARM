@@ -7,12 +7,13 @@
   .global tst
 
 tts:
-    mov r8,R8
+    mov 8,r8 
     adcs R3,r7     
     nop
     adds R1,r1  
 l1: adds R1,r1, 20  
     adds R1,20     
+    
     adds R3, r7,-7   
     adds R3, 1      
     adds r1, R1, r2  
