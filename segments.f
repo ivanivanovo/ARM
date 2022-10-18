@@ -196,23 +196,30 @@ EXPORT
 
 ;MODULE
 
-\EOF \ ======== ТЕСТЫ И ПРИМЕРЫ =====================================================
-0x08000000 30  22 createSeg: ROM-SEG
-ROM-SEG TO SEG
-0x123 >seg
-SEG SEGdump
-?seg CR
-
-0x800000 1024 127 createSeg:  tup
-tup TO SEG
-\ ?seg CR
-0x800100 200 127 createSeg:  tmp
-tmp TO SEG
-\ ?seg CR
-0x800200 200 10 createSeg:  tmp2
-tmp2 TO SEG
-\ ?seg CR
-
-tup TO SEG
-CR lsSEG
-QUIT
+\ ======== ТЕСТЫ И ПРИМЕРЫ =====================================================
+[IF_main] \ определено в spf4.ini
+    0xFF 0x08000000 30  22 createSeg: ROM-SEG
+    ROM-SEG TO SEG
+    0x123 >seg
+    SEG SEGdump
+    ?seg CR
+    
+    0 0x800000 1024 127 createSeg:  tup
+    tup TO SEG
+    1 C>seg
+    2 C>seg
+    3 C>seg
+    4 C>seg
+    5 C>seg
+    SEG SEGdump
+    \ ?seg CR
+    0 0x800100 200 127 createSeg:  tmp
+    tmp TO SEG
+    \ ?seg CR
+    0 0x800200 200 10 createSeg:  tmp2
+    tmp2 TO SEG
+    \ ?seg CR
+    
+    tup TO SEG
+    CR lsSEG
+[THEN]

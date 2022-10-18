@@ -144,8 +144,7 @@ EXPORT
 ;MODULE 
 
 \ примеры использования и тест
-SOURCE-ID 3 = 
-[IF]
+[IF_main] \ определено в spf4.ini
     chain: asd
     3 asd  +hung
     4 asd  hung+
