@@ -10,7 +10,7 @@
 \ asm? off bin> 10111000 <reg> type CR
 
 \ EOF \ локальные отладочные тесты
-0x08000000 0 1024 createSeg: ROM-SEG
+0xFF 0x08000000 0 1024 createSeg: ROM-SEG
 ROM-SEG TO SEG
 
 : delArg BL WORD DROP ; \  сожрать аргумент
