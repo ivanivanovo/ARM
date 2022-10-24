@@ -37,16 +37,16 @@ chain: encodes \ кончик цепочки енкодов
 ' nf-commaFree enqueueNOTFOUND
 
 300 COUNTER: ErrNo
-ErrNo err: errEncode S" не удалось закодировать"
+ErrNo err: errEncode S" Не удалось закодировать"
 ErrNo err: errNoReg  S" Не регистр"
 ErrNo err: errRlo    S" Не младший регистр"
 ErrNo err: errRdn    S" Разные регистры"
 ErrNo err: errBigOp  S" Слишком большое число в операнде"
-ErrNo err: errOddOp  S" лишнее операнды или их нехватка"
-ErrNo err: errImm!2  S" нечетное число "
-ErrNo err: errImm!4  S" невыровненное число"
-ErrNo err: err+Label S" метка должна быть только вперед"
-ErrNo err: errNoSym  S" неверный символ-аргумент"
+ErrNo err: errOddOp  S" Лишнее операнды или их нехватка"
+ErrNo err: errImm!2  S" Нечетное число"
+ErrNo err: errImm!4  S" Невыровненное число"
+ErrNo err: err+Label S" Метка должна быть только вперед"
+ErrNo err: errNoSym  S" Неверный символ-аргумент"
 
 \ Condition number
 \    cond                Mnemonic  Meaning                         Condition flags
@@ -150,16 +150,23 @@ ASM? ON
     finger 4 + 
     ;
 
+: sMask ( n mask -- [n]) \ проверть, что n ложится в маску
+    \ без потери знака
+    2DUP 2/ INVERT \ n !mask/2
+    SWAP DUP 0< IF INVERT THEN
+    AND IF errBigOp THROW THEN
+    AND
+    ;
+
 : [adr] ( adr mask -- ) \ запомнить адрес метки в текущей команде
     >R [PC] - \ adr-PC
     /2? 
-    ( проверить на вместимость !!!!!!!!!!)
-     R@ AND 
+    R@ sMask 
     R> >enc
     ;
 
 : LabelName ( [adr] -- adr u) \ дать строку с именем метки
-    DROP ." метка"
+    DROP ." метка (не доделано)"
     ;
 
 : RegName ( #Reg -- c-adr u) \ дать строку с именем регистра
@@ -420,8 +427,14 @@ EXPORT
 : C[ ( --) \ начать ассемблирование
     ASM? ON \ переключить режим
     ;
+
+: finishEnc ( --) \ обработать последний операнд
+    0 asmcoder 
+    ; 
+ ' finishEnc IS actualizeAdr
+
 : ]C ( --) \ закончить ассемблирование
-    0 asmcoder \ обработать последний операнд
+    finishEnc
     ASM? OFF \ переключить режим
     ;    
 
@@ -433,6 +446,7 @@ EXPORT
 : C; ( -- ) ]C ; \ закончить ассемблирование
 
 : discoder ( )
+    \ TODO
     ;
 
 S"     " DROP @ CONSTANT 4BL \ 4 пробела как число 
@@ -635,9 +649,9 @@ VARIABLE tabul \ табулятор
 
 : shwEncode ( obj --) \ показать структуру кодировщика команды
     \ с отступом 
-    tab> ." ========================================" CR 
+    tab> ." =======================================" CR 
     DUP .eHlp @ first extHlp DROP             
-    tab> ." ----------------------------------------" CR 
+    tab> ." ---------------------------------------" CR 
     tab> DUP .eCliche ." clishe=" @ 32bit.            CR 
     tab> DUP .eMask   ." mask=  " @ 32bit.            CR 
     tab> DUP .eXt     ." preXt= " @ .HEX              CR

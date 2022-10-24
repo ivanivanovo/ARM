@@ -72,13 +72,14 @@ DEFINITIONS
     ;
 
 EXPORT
-    
+    DEFER actualizeAdr \ выполнить отложенные операции
     \ NOTFOUND
     \ если слово не найдено И кончается двоеточием,
     \ сделать из него метку (без двоеточия в конце!)
     :NONAME ( adr u -- true| adr u false)
         2DUP + 1- C@ [CHAR] : =
-        IF 1- CodeType -ROT (create) TRUE ELSE FALSE THEN
+        IF 2>R actualizeAdr 2R> 
+           1- MarkType -ROT  (create) TRUE ELSE FALSE THEN
         ; enqueueNOTFOUND
 
     : ?label ( obj --) \ показать структуру метки по адресу объекта метки

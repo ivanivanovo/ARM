@@ -26,3 +26,4 @@ tt: add PC, r8
     CPSIE i        
     DMB
     B tts 
+    B tt
