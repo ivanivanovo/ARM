@@ -72,15 +72,6 @@ DEFINITIONS
     ;
 
 EXPORT
-    DEFER actualizeAdr \ выполнить отложенные операции
-    \ NOTFOUND
-    \ если слово не найдено И кончается двоеточием,
-    \ сделать из него метку (без двоеточия в конце!)
-    :NONAME ( adr u -- true| adr u false)
-        2DUP + 1- C@ [CHAR] : =
-        IF 2>R actualizeAdr 2R> 
-           1- MarkType -ROT  (create) TRUE ELSE FALSE THEN
-        ; enqueueNOTFOUND
 
     : ?label ( obj --) \ показать структуру метки по адресу объекта метки
         CR DUP ." label: " .name @ str# TYPE 
@@ -97,8 +88,11 @@ EXPORT
         >BODY @ ?label
         ;
     
-    : createLabel ( type <name> --) \ создать метку <name>
-        BL WORD COUNT (create)
+    : labelCreated ( type adr u --) \ создать метку 
+        (create)
+        ;
+    : labelCreate ( type <name> --) \ создать метку <name>
+        BL WORD COUNT labelCreated
         ;
 
 ;MODULE
