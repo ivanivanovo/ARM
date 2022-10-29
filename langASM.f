@@ -8,6 +8,7 @@ REQUIRE enqueueNOTFOUND nf-ext.f
 REQUIRE alloc           heap.f
 REQUIRE >Seg            segments.f
 REQUIRE createLabel     labels.f
+REQUIRE errQuit         errorsEncode.f
 
 #def NOT 0= ( x --T|F) \ инверсия результата
     \ усли x=0 - FALSE, иначе TRUE
@@ -17,17 +18,9 @@ ALSO ASSEMBLER DEFINITIONS
 
 chain: encodes \ кончик цепочки енкодов
 
-300 COUNTER: ErrNo
-ErrNo err: errEncode S" Не удалось закодировать"
-ErrNo err: errNoReg  S" Не регистр"
-ErrNo err: errRlo    S" Не младший регистр"
-ErrNo err: errRdn    S" Разные регистры"
-ErrNo err: errBigOp  S" Слишком большое число в операнде"
-ErrNo err: errOddOp  S" Лишнее операнды или их нехватка"
-ErrNo err: errImm!2  S" Нечетное число"
-ErrNo err: errImm!4  S" Невыровненное число"
-ErrNo err: err+Label S" Метка должна быть только вперед"
-ErrNo err: errNoSym  S" Неверный символ-аргумент"
+
+
+
 
 \ Condition number
 \    cond          Mnemonic  Meaning                         Condition flags
@@ -53,6 +46,7 @@ BIN> 1110 CONSTANT   ..AL    \ ALways (unconditional) Any
 \ Регистр представлен на стеке парой чисел:
 \ признак регистра & номер регистра
 \ в стековой нотации эта пара обозначается [r,x]
+DECIMAL
 129 CONSTANT itisReg \ признак регистра
 : REGISTER: ( n <name> --) \ слово определяющее регистр
     CREATE , itisReg , 
@@ -93,82 +87,10 @@ VARIABLE ASM? \ переменная состояния, TRUE кодирован
 VARIABLE enc \ текущий код команды
 VARIABLE lastDepth \ глубина стека перед отсрочкой оператора
 
+
 MODULE: Masmcoding
 \ кодировщик команд
-    VARIABLE operator 0 operator ! \ текущий оператор (команда)
-
-        MODULE: MerrorsEncode
-        \ накопитель ошибок
-        \ если все альтернативы дали сбой - выдать весь список
-        \ если хоть одна сработала - забыть про них
-
-                0 \ структура описания источника ошибок
-                CELL -- .file   \ --> в каком файле определена
-                CELL -- .line   \ в какой строке
-                CELL -- .pos    \ на какой позиции
-                256  -- .src    \ буфер строки
-                CONSTANT structSrc
-
-                CREATE srcA structSrc ALLOT \ текущий оператор (исходик)
-                CREATE srcB structSrc ALLOT \ отложенный оператор (исходик)
-
-                chain: errAsm    \ накопитель ошибок
-                
-                : extErrs ( pos #err -- pos TREUE)
-                    OVER 2- SPACES ." ^-- " err? TYPE CR
-                    TRUE
-                    ;
-
-                : extErr ( # #' -- # #' f)
-                    2DUP = NOT 
-                    ;
-
-                : new? ( #  -- f)
-                    \ проверить наличие такого номера в списке
-                    errAsm chCount 0= 
-                    IF DROP TRUE 
-                    ELSE errAsm ['] extErr extEach = NOT
-                    THEN
-                    ;
-
-            EXPORT
-
-            : S! ( adr u adr1 -- ) \ записать строку adr u в adr1 как строку со счётчиком
-                >R 0xFF AND DUP R@ C! R> 1+ SWAP CMOVE
-                ;
-
-            : SOURCE! ( adr -- ) \ запомнить источник возможных проблем
-                >R
-                curSrc   R@ .file !
-                CURSTR @ R@ .line !
-                >IN    @ R@ .pos  !
-                SOURCE   R> .src S!
-                ;
-            
-            : errClean ( --) \ очистить список ошибок
-                errAsm chClean
-                ;
-
-            : +errAsm ( # --) \ добавить новый код ошибки к списку ошибок
-                DUP new?
-                IF errAsm +hung ELSE DROP THEN
-                ;
-
-            : errQuit ( --) \ выход с ошибкой
-                0 operator ! 
-                CR ." Ошибка: " srcA >R
-                R@ .file @ str# TYPE ." :" R@ .line @ . ." :" R@ .pos @ . CR
-                R@ .src COUNT TYPE CR 
-                R> .pos @ errAsm ['] extErrs extEach
-                QUIT \ THROW
-                ;
-
-            : srcSWAP ( --)    
-                srcB srcA structSrc CMOVE
-                \ захватить текущую строку исходника для отладки
-                srcB SOURCE! 
-                ;
-        ;MODULE
+        VARIABLE operator 0 operator ! \ текущий оператор (команда)
 
         \ ============ стек временного хранения стека данных ================
         100 VSTACK T \ V-стек 

@@ -11,7 +11,7 @@ tts:
     adcs R3,r7     
     nop
     adds R1,r1  
-l1: adds R1,r1, 20  
+l1: adds R1,r1,20  
     adds R1,20      
     adds R3, r7,7       
     adds R3, 1      
