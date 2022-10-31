@@ -10,17 +10,17 @@ MODULE: MerrorsEncode
     EXPORT
     \ описание ошибок кодирования
         DECIMAL
-        300 COUNTER: ErrNo
-        ErrNo err: errEncode S" Не удалось закодировать"
-        ErrNo err: errNoReg  S" Не регистр"
-        ErrNo err: errRlo    S" Не младший регистр"
-        ErrNo err: errRdn    S" Разные регистры"
-        ErrNo err: errBigOp  S" Слишком большое число в операнде"
-        ErrNo err: errOddOp  S" Лишнее операнды или их нехватка"
-        ErrNo err: errImm!2  S" Нечетное число"
-        ErrNo err: errImm!4  S" Невыровненное число"
-        ErrNo err: err+Label S" Метка должна быть только вперед"
-        ErrNo err: errNoSym  S" Неверный символ-аргумент"
+        300 COUNTER: cntErr \ генератор номеров ошибок
+        cntErr err: errEncode S" Не удалось закодировать"
+        cntErr err: errNoReg  S" Не регистр"
+        cntErr err: errRlo    S" Не младший регистр"
+        cntErr err: errRdn    S" Разные регистры"
+        cntErr err: errBigOp  S" Слишком большое число в операнде"
+        cntErr err: errOddOp  S" Лишнее операнды или их нехватка"
+        cntErr err: errImm!2  S" Нечетное число"
+        cntErr err: errImm!4  S" Невыровненное число"
+        cntErr err: err+Label S" Метка должна быть только вперед"
+        cntErr err: errNoSym  S" Неверный символ-аргумент"
     DEFINITIONS    
 
         0 \ структура описания источника ошибок
@@ -35,18 +35,19 @@ MODULE: MerrorsEncode
 
         chain: errAsm    \ накопитель ошибок
         
-        VARIABLE lastNum
-        : extErr ( # #' -- # f)
-            DUP lastNum ! OVER  <> 
+        : extErr ( n0 n1 n2 -- n0 n2 f)
+            \ n0 - образец
+            \ n1 - старое значение, не похожее на образец
+            \ n2 - новое значеие, добавляется при проходе по цепи
+            \ f  - результат сравнения, потребляется для прохода по цепи
+            NIP 2DUP <> 
             ;
 
-        : new? ( #  -- f)
+        : new? ( n  -- f)
             \ проверить наличие такого номера в списке
-            errAsm chCount 0= 
-            IF DROP TRUE 
-            ELSE errAsm ['] extErr extEach 
-            lastNum @ <> 
-            THEN
+            DUP 1+ \ n n', точно разные 
+            errAsm ['] extErr extEach 
+            <> 
             ;
 
         : S! ( adr u adr1 -- ) \ записать строку adr u в adr1 как строку со счётчиком
