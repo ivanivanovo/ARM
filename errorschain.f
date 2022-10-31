@@ -52,12 +52,14 @@ EXPORT
 
 ;MODULE
 
-\EOF пример использования
-300 COUNTER: ErrNo
-ErrNo err: errEncode S" не удалось закодировать"
-ErrNo err: errNoReg  S" Не регистр"
-ErrNo err: errRlo    S" Не младший регистр"
+\ примеры использования и тест
+[IF_main] \ определено в spf4.ini
+REQUIRE COUNTER: toolbox.f
+300 COUNTER: cntErr
+cntErr err: errEncode S" не удалось закодировать"
+cntErr err: errNoReg  S" Не регистр"
+cntErr err: errRlo    S" Не младший регистр"
 \ ...
 errNoReg err? TYPE CR
 errList.
-QUIT 
+[THEN] 

@@ -24,176 +24,171 @@ REQUIRE chain: chains.f \ для свзывания сегментов в цеп
 REQUIRE alloc  heap.f   \ для обращения к куче
 
 MODULE: segments
+    \ 
+        0 \ структура описывающая сегмент
+        CELL -- .adr    \ адрес выделенной памяти в компе
+        CELL -- .name   \ --> на строку со счетчиком
+        CELL -- .base   \ начало сегмента в памяти чипа
+        CELL -- .size   \ текущий размер выделенной памяти
+        CELL -- .lim    \ ограничение размера для выделенной памяти
+        CELL -- .finger \ свободный указатель, смещение от начала сегмента
+        CELL -- .wender \ указатель конца записи, смещение от начала сегмента
+        CELL -- .labels \ начало цепочки меток в этом сегменте
+        1    -- .defsym \ дефолтное заначение наиспользованной области сегмента
+        CONSTANT stuctSEG
+    EXPORT
 
-    0 \ структура описывающая сегмент
-    CELL -- .adr    \ адрес выделенной памяти в компе
-    CELL -- .name   \ --> на строку со счетчиком
-    CELL -- .base   \ начало сегмента в памяти чипа
-    CELL -- .size   \ текущий размер выделенной памяти
-    CELL -- .lim    \ ограничение размера для выделенной памяти
-    CELL -- .finger \ свободный указатель, смещение от начала сегмента
-    CELL -- .wender \ указатель конца записи, смещение от начала сегмента
-    CELL -- .labels \ начало цепочки меток в этом сегменте
-    1    -- .defsym \ дефолтное заначение наиспользованной области сегмента
-    CONSTANT stuctSEG
+        0 VALUE SEG \ ссылка на структуру текущего сегмента
+        chain: SegChain \ цепочка сегментов
+    DEFINITIONS
 
+        : name. ( seg --) \ напечатать имя сегмента
+            .name @ str# TYPE
+            ;
 
-EXPORT
+        : defFill ( seg -- ) \ заполнить новое место дефолтным символом 
+            >R
+            R@ .adr  @  R@ .wender @ +
+            R@ .size @  R@ .wender @ - 
+            R> .defsym C@ 
+            FILL 
+            ;
 
-    0 VALUE SEG \ ссылка на структуру текущего сегмента
-    chain: SegChain \ цепочка сегментов
+        : resize? ( finger' --) \ нужно ли и возможно ли изменение размера сегмента?
+            SEG .size @ OVER <
+            \ попытка расширить сегмент
+            IF  SEG .lim @ ?DUP IF OVER < ABORT" Выход за ограничитель сегмента." THEN
+                SEG .size @ OVER SWAP / 1+ SEG .size @ *
+                SEG .lim @ ?DUP IF MIN THEN
+                \ finger' new-size
+                SEG .adr @ OVER RESIZE THROW SEG .adr ! SEG .size !
+                SEG defFill
+            THEN 
+            DROP
+            ;
 
-DEFINITIONS
+        : finger! ( u --) \ установить указатель
+            >R
+            R@ resize?
+            R@ SEG .finger !
+            R> SEG .wender @ MAX SEG .wender ! 
+            ;
 
-    : name. ( seg --) \ напечатать имя сегмента
-        .name @ str# TYPE
-        ;
+        : finger> ( u --) \ передвинуть указатель на u байт
+            SEG .finger @ + finger! 
+            ;    
 
-    : defFill ( seg -- ) \ заполнить новое место дефолтным символом 
-        >R
-        R@ .adr  @  R@ .wender @ +
-        R@ .size @  R@ .wender @ - 
-        R> .defsym C@ 
-        FILL 
-        ;
+        : u>SEG ( u -- adr) \ дать адрес для записи u байт в сегмент
+            SEG .finger @ 
+            SWAP finger>
+            SEG .adr @ + 
+            ;
 
-    : resize? ( finger' --) \ нужно ли и возможно ли изменение размера сегмента?
-        SEG .size @ OVER <
-        \ попытка расширить сегмент
-        IF  SEG .lim @ ?DUP IF OVER < ABORT" Выход за ограничитель сегмента." THEN
-            SEG .size @ OVER SWAP / 1+ SEG .size @ *
-            SEG .lim @ ?DUP IF MIN THEN
-            \ finger' new-size
-            SEG .adr @ OVER RESIZE THROW SEG .adr ! SEG .size !
-            SEG defFill
-        THEN 
-        DROP
-        ;
+        : SEG>u ( u -- adr) \ дать адрес для чтения u байт из сегмента
+            SEG .finger @ TUCK +
+            SEG .wender @ > ABORT" Незаписано."
+            SEG .adr @ + 
+            ;
 
-    : finger! ( u --) \ установить указатель
-        >R
-        R@ resize?
-        R@ SEG .finger !
-        R> SEG .wender @ MAX SEG .wender ! 
-        ;
+        : (.seg) ( seg -- f)
+            >R
+            SEG R@ = IF CR ." == Текущий сегмент == " THEN
+            CR ." Имя:     "   R@ name. 
+            CR ." Адрес:   0x" R@ .adr    @ .UHEX
+            CR ." База:    0x" R@ .base   @ .UHEX
+            CR ." Размер:  "   R@ .size   @ U.
+            CR ." Лимит:   "   R@ .lim    @ U.
+            CR ." Заполн.: 0x" R@ .defsym C@ .UHEX
+            CR ." .finger: "   R@ .finger @ U.
+            CR ." .wender: "   R@ .wender @ U.
+            CR ." .labels: 0x" R@ .labels @ .UHEX
+            CR R> DROP
+            TRUE
+            ;
+        : .seg ( seg --) \ показать структуру сегмента seg
+            (.seg) DROP
+            ;   
+    EXPORT
+        \ 0xFF max size createSeg: ROM-SEG
+        : createSeg: ( sym base limit size <name> --)
+        \ новое слово <name> выдает адрес структуры
+            >IN @ >R
+                CREATE DUP >R ALLOCATE THROW
+                HERE stuctSEG 0 FILL
+                HERE SegChain hung+ \ в цепочку
+                HERE .adr !
+                R> HERE .size !
+                HERE .lim !
+                HERE .base !
+            R> >IN ! BL WORD COUNT str>
+                HERE .name !
+                HERE .labels iniChain \ начало цепочки местных меток
+                HERE .defsym !
+                HERE defFill \ забить сегмент символом
+                stuctSEG ALLOT
+            ;
 
-    : finger> ( u --) \ передвинуть указатель на u байт
-        SEG .finger @ + finger! 
-        ;    
+        : ?seg ( --) \ показать структуру текущего сегмента
+            SEG IF SEG .seg THEN
+            ;
 
-    : u>SEG ( u -- adr) \ дать адрес для записи u байт в сегмент
-        SEG .finger @ 
-        SWAP finger>
-        SEG .adr @ + 
-        ;
+        : segLabels ( -- nexus)
+            SEG .labels @
+            ;
 
-    : SEG>u ( u -- adr) \ дать адрес для чтения u байт из сегмента
-        SEG .finger @ TUCK +
-        SEG .wender @ > ABORT" Незаписано."
-        SEG .adr @ + 
-        ;
+        : lsSEG ( -- ) \ выдать список всех сегментов
+            SegChain  
+            IF SegChain ['] (.seg) extEach 
+            THEN
+            ;
 
-    : (.seg) ( seg -- f)
-        >R
-        SEG R@ = IF CR ." == Текущий сегмент == " THEN
-        CR ." Имя:     "   R@ name. 
-        CR ." Адрес:   0x" R@ .adr    @ .HEX
-        CR ." База:    0x" R@ .base   @ .HEX
-        CR ." Размер:  "   R@ .size   @ .
-        CR ." Лимит:   "   R@ .lim    @ .
-        CR ." Заполн.: "   R@ .defsym C@ .HEX
-        CR ." .finger: "   R@ .finger @ .
-        CR ." .wender: "   R@ .wender @ .
-        CR ." .labels: "   R@ .labels @ .HEX
-        CR R> DROP
-        TRUE
-        ;
-    : .seg ( seg --) \ показать структуру сегмента seg
-        (.seg) DROP
-        ;
-       
-EXPORT
-    \ 0xFF max size createSeg: ROM-SEG
-    : createSeg: ( sym base limit size <name> --)
-    \ новое слово <name> выдает адрес структуры
-        >IN @ >R
-            CREATE DUP >R ALLOCATE THROW
-            HERE stuctSEG 0 FILL
-            HERE SegChain hung+ \ в цепочку
-            HERE .adr !
-            R> HERE .size !
-            HERE .lim !
-            HERE .base !
-        R> >IN ! BL WORD COUNT str>
-            HERE .name !
-            HERE .labels iniChain \ начало цепочки местных меток
-            HERE .defsym !
-            HERE defFill \ забить сегмент символом
-            stuctSEG ALLOT
-        ;
+        : SEGdump ( seg --) \ распечатать дамп записаной части сегмента
+            CR
+            DUP .adr @ SWAP .wender @ DUMP
+            ;
 
-    : ?seg ( --) \ показать структуру текущего сегмента
-        SEG IF SEG .seg THEN
-        ;
+        : ORG ( u -- ) \ установить указатель сегмента
+            SEG .base @ - DUP 0< ABORT" Неверный адрес."
+            finger! 
+            ;
+        
+        : finger ( -- baseAdr) \ получить целевой адрес
+            SEG .base @
+            SEG .finger @ +
+            ;
+        : wender ( -- baseAdr) \ получить целевой адрес
+            SEG .base @
+            SEG .wender @ +
+            ;
+        \ запись в сегмент ===============================    
+        : >Seg ( n --) \ записать ячейку в сегмент
+            CELL u>SEG !
+            ;
+        : W>Seg ( n -- ) \ записать слово в сегмент
+            2 u>SEG W!
+            ;    
+        : C>Seg ( n -- ) \ записать байт в сегмент
+            1 u>SEG C!
+            ;    
+        : S>Seg ( adr u -- ) \ записать строку в сегмент
+            \ как строку со счетчиком
+            DUP 1+ u>SEG 2DUP C! 1+ SWAP CMOVE
+            ;    
 
-    : segLabels ( -- nexus)
-        SEG .labels @
-        ;
-
-    : lsSEG ( -- ) \ выдать список всех сегментов
-        SegChain  
-        IF SegChain ['] (.seg) extEach 
-        THEN
-        ;
-
-    : SEGdump ( seg --) \ распечатать дамп записаной части сегмента
-        CR
-        DUP .adr @ SWAP .wender @ DUMP
-        ;
-
-    : ORG ( u -- ) \ установить указатель сегмента
-        SEG .base @ - DUP 0< ABORT" Неверный адрес."
-        finger! 
-        ;
-    
-    : finger ( -- baseAdr) \ получить целевой адрес
-        SEG .base @
-        SEG .finger @ +
-        ;
-    : wender ( -- baseAdr) \ получить целевой адрес
-        SEG .base @
-        SEG .wender @ +
-        ;
-    \ запись в сегмент ===============================    
-    : >Seg ( n --) \ записать ячейку в сегмент
-        CELL u>SEG !
-        ;
-    : W>Seg ( n -- ) \ записать слово в сегмент
-        2 u>SEG W!
-        ;    
-    : C>Seg ( n -- ) \ записать байт в сегмент
-        1 u>SEG C!
-        ;    
-    : S>Seg ( adr u -- ) \ записать строку в сегмент
-        \ как строку со счетчиком
-        DUP 1+ u>SEG 2DUP C! 1+ SWAP CMOVE
-        ;    
-
-    \ чтение из сегмента ===============================    
-    : Seg> ( -- n) \ получить ячейку из сегмента
-        CELL SEG>u @
-        ;
-    : Seg>W (  -- n ) \ получить слово из сегмента
-        2 SEG>u W@
-        ;    
-    : Seg>C (  -- n ) \ получить байт из сегмента
-        1 SEG>u C@
-        ;    
-    : Seg>S (  -- adr u ) \ получить строку из сегмента
-        \ как строку со счетчиком
-        Seg>C SEG>u COUNT
-        ;    
-
+        \ чтение из сегмента ===============================    
+        : Seg> ( -- n) \ получить ячейку из сегмента
+            CELL SEG>u @
+            ;
+        : Seg>W (  -- n ) \ получить слово из сегмента
+            2 SEG>u W@
+            ;    
+        : Seg>C (  -- n ) \ получить байт из сегмента
+            1 SEG>u C@
+            ;    
+        : Seg>S (  -- adr u ) \ получить строку из сегмента
+            \ как строку со счетчиком
+            Seg>C SEG>u COUNT
+            ;    
 ;MODULE
 
 \ ======== ТЕСТЫ И ПРИМЕРЫ =====================================================

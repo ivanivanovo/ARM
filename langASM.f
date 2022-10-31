@@ -2,11 +2,6 @@
 \ 
 REQUIRE 2CONSTANT       lib/include/double.f
 REQUIRE toolbox         toolbox.f
-REQUIRE chain:          chains.f
-REQUIRE err:            errorschain.f
-REQUIRE enqueueNOTFOUND nf-ext.f
-REQUIRE alloc           heap.f
-REQUIRE >Seg            segments.f
 REQUIRE createLabel     labels.f
 REQUIRE errQuit         errorsEncode.f
 
@@ -15,11 +10,6 @@ REQUIRE errQuit         errorsEncode.f
 
 VOCABULARY ASSEMBLER
 ALSO ASSEMBLER DEFINITIONS
-
-chain: encodes \ кончик цепочки енкодов
-
-
-
 
 
 \ Condition number
@@ -41,24 +31,6 @@ BIN> 1011 CONSTANT   ..LT    \ signed Less Than                N != V
 BIN> 1100 CONSTANT   ..GT    \ signed Greater Than             Z == 0 and N == V
 BIN> 1101 CONSTANT   ..LE    \ signed Less than or Equal       Z == 1 or N != V
 BIN> 1110 CONSTANT   ..AL    \ ALways (unconditional) Any
-
-
-\ Регистр представлен на стеке парой чисел:
-\ признак регистра & номер регистра
-\ в стековой нотации эта пара обозначается [r,x]
-DECIMAL
-129 CONSTANT itisReg \ признак регистра
-: REGISTER: ( n <name> --) \ слово определяющее регистр
-    CREATE , itisReg , 
-    DOES> 2@ 
-    ;
- 0 REGISTER: R0     1 REGISTER: R1     2 REGISTER: R2      3 REGISTER: R3
- 4 REGISTER: R4     5 REGISTER: R5     6 REGISTER: R6      7 REGISTER: R7
- 8 REGISTER: R8     9 REGISTER: R9    10 REGISTER: R10    11 REGISTER: R11
-12 REGISTER: R12   13 REGISTER: R13   14 REGISTER: R14    15 REGISTER: R15
-                   13 REGISTER: SP    14 REGISTER: LR     15 REGISTER: PC
-
-
 
 
 0 \ структура мнемоники
@@ -84,13 +56,13 @@ CONSTANT structEncode
 
 \ ===================================================================
 VARIABLE ASM? \ переменная состояния, TRUE кодирование, FALSE декодирование 
-VARIABLE enc \ текущий код команды
-VARIABLE lastDepth \ глубина стека перед отсрочкой оператора
+VARIABLE enc  \ текущий код команды
 
 
-MODULE: Masmcoding
-\ кодировщик команд
+MODULE: Masmcoding \ кодировщик команд
+    \ 
         VARIABLE operator 0 operator ! \ текущий оператор (команда)
+        VARIABLE lastDepth \ глубина стека перед отсрочкой оператора
 
         \ ============ стек временного хранения стека данных ================
         100 VSTACK T \ V-стек 
@@ -123,7 +95,7 @@ MODULE: Masmcoding
             DEPTH lastDepth @ - IF errOddOp THROW THEN
             ;
 
-        : overJump ( nexus -- nexus') \ прыжок оператора черз свои параметры
+        : overJump ( nexus -- nexus') \ прыжок оператора через его параметры
             \ заменить оператор на предыдущий,
             operator @ SWAP operator ! \ а текущий будет ждать своих операндов
             \ заменить исходник на предыдущий,
@@ -143,68 +115,79 @@ MODULE: Masmcoding
             Tdrop \ нормальный выход, сброс снимка
             errClean \ очистить список ошибок
             ;
-    EXPORT
-
-    : asmcoder ( j*x nexus -- i*x ) 
-        \ на стеке лежат операнды предыдущего оператора/команды
-        DUP \ не 0
-        IF \ предисполнитель
-            DUP first .eXt @ ?DUP IF EXECUTE THEN
-        THEN
-        overJump ?DUP 
-        IF  tryAlts \ попытаться закодировать команду
-            \ сохранить полученную команду в текущем сегменте
-            \ старшее слово (если не 0) пишется первым
-            enc @ WORD-SPLIT ?DUP IF W>Seg THEN W>Seg 
-        THEN
-        DEPTH lastDepth ! \ запомнить текущую глубину стека
-        ;
-
+    EXPORT \ asmcoder
+        : asmcoder ( j*x nexus -- i*x ) 
+            \ на стеке лежат операнды предыдущего оператора/команды
+            DUP \ не 0
+            IF \ предисполнитель
+                DUP first .eXt @ ?DUP IF EXECUTE THEN
+            THEN
+            overJump ?DUP 
+            IF  tryAlts \ попытаться закодировать команду
+                \ сохранить полученную команду в текущем сегменте
+                \ старшее слово (если не 0) пишется первым
+                enc @ WORD-SPLIT ?DUP IF W>Seg THEN W>Seg 
+            THEN
+            DEPTH lastDepth ! \ запомнить текущую глубину стека
+            ;
     DEFINITIONS
 
         : finishEnc ( --) \ обработать последний операнд
             0 asmcoder 
             ; 
-    EXPORT
+    EXPORT \ CODE C[ 
+        : C[ ( --) \ начать ассемблирование
+            ASM? ON \ переключить режим
+            ;
 
-    
-    : C[ ( --) \ начать ассемблирование
-        ASM? ON \ переключить режим
-        ;
+        \ NOTFOUND
+        \ если слово не найдено И кончается двоеточием,
+        \ сделать из него метку (без двоеточия в конце!)
+        :NONAME ( adr u -- true| adr u false)
+            2DUP + 1- C@ [CHAR] : =
+            IF 2>R finishEnc 2R> 
+               1- MarkType -ROT  labelCreated TRUE ELSE FALSE THEN
+            ; enqueueNOTFOUND
 
-    \ NOTFOUND
-    \ если слово не найдено И кончается двоеточием,
-    \ сделать из него метку (без двоеточия в конце!)
-    :NONAME ( adr u -- true| adr u false)
-        2DUP + 1- C@ [CHAR] : =
-        IF 2>R finishEnc 2R> 
-           1- MarkType -ROT  labelCreated TRUE ELSE FALSE THEN
-        ; enqueueNOTFOUND
+        : ]C ( --) \ закончить ассемблирование
+            finishEnc
+            ASM? OFF \ переключить режим
+            ;    
 
-    : ]C ( --) \ закончить ассемблирование
-        finishEnc
-        ASM? OFF \ переключить режим
-        ;    
+        : CODE ( <name> -- ) \ начать ассемблирование
+            CodeType labelCreate
+            C[
+            ;
 
-    : CODE ( <name> -- ) \ начать ассемблирование
-        CodeType labelCreate
-        C[
-        ;
+        : C; ( -- ) ]C ; \ закончить ассемблирование
 
-    : C; ( -- ) ]C ; \ закончить ассемблирование
-
-    : discoder ( )
-        \ TODO
-        ;
+        : discoder ( )
+            \ TODO
+            ;
 ;MODULE
 
 \ ***********************************************************************************
-MODULE: Mcommands
-\ работа с описанием ассемблерных команд
+
+\ Регистр представлен на стеке парой чисел:
+\ признак регистра & номер регистра
+\ в стековой нотации эта пара обозначается [r,x]
+DECIMAL
+129 CONSTANT itisReg \ признак регистра
+: REGISTER: ( n <name> --) \ слово определяющее регистр
+    CREATE , itisReg , 
+    DOES> 2@ 
+    ;
+ 0 REGISTER: R0     1 REGISTER: R1     2 REGISTER: R2      3 REGISTER: R3
+ 4 REGISTER: R4     5 REGISTER: R5     6 REGISTER: R6      7 REGISTER: R7
+ 8 REGISTER: R8     9 REGISTER: R9    10 REGISTER: R10    11 REGISTER: R11
+12 REGISTER: R12   13 REGISTER: R13   14 REGISTER: R14    15 REGISTER: R15
+                   13 REGISTER: SP    14 REGISTER: LR     15 REGISTER: PC
+
+MODULE: Mcommands \ работа с описанием ассемблерных команд
+        chain: encodes \ кончик цепочки енкодов
+        
         MODULE: OperandsHandlers
         \ ============ Обработка операндов ==================================
-
-            ASM? ON 
 
             #def ASM> ASM? @ IF
             #def DIS> EXIT THEN
@@ -369,17 +352,13 @@ MODULE: Mcommands
             DO OVER I C@ = IF DUP I C! ROT 1+ -ROT THEN
             LOOP 2DROP 
             ;
-
-    EXPORT
-
-    \ NOTFOUND
-    \ если слово не найдено И содержит запятые,
-    \ попробовать интерпретировать слово как строку без запятых
-    :NONAME ( adr u -- true | adr u false) 
-        [CHAR] , BL replaceBytes
-        IF EVALUATE TRUE ELSE FALSE THEN 
-        ; enqueueNOTFOUND
-
+    EXPORT \ NOTFOUND
+        \ если слово не найдено И содержит запятые,
+        \ попробовать интерпретировать слово как строку без запятых
+        :NONAME ( adr u -- true | adr u false) 
+            [CHAR] , BL replaceBytes
+            IF EVALUATE TRUE ELSE FALSE THEN 
+            ; enqueueNOTFOUND
     DEFINITIONS
 
         S"     " DROP @ CONSTANT 4BL \ 4 пробела как число 
@@ -414,11 +393,10 @@ MODULE: Mcommands
             DUP .eOps  iniChain   \ пустая цепочка   
             ;
         
-
-            0 \ структура помощника
-            CELL -- .hTag  \ метка
-            CELL -- .hStr  \ ->строка описания
-            CONSTANT structHelper
+        0 \ структура помощника
+        CELL -- .hTag  \ метка
+        CELL -- .hStr  \ ->строка описания
+        CONSTANT structHelper
         
         : createHlp ( tag adr u -- adr_strHlp) \ создать структуру помощника
             str> \ tag c-addr
@@ -426,34 +404,31 @@ MODULE: Mcommands
             TUCK .hStr !
             TUCK .hTag !
             ;
-    EXPORT
-
-    : Assm: ( <mnemonics> -- 0 ) \ создает или находит структуру 
-        \ ассемблерной команды <mnemonics>
-        \ возвращает ссылку на неё
-        [CHAR] V Phrase -BL createHlp \ hlp запомнить фразу команды в структуре помощника
-        BL WORD COUNT    \ hlp adr u - мнемоника во входном буфере
-        2DUP UPPERCASE-W \ ВСЕГДА В ВЕРХНЕМ РЕГИСТРЕ
-        2DUP GET-CURRENT SEARCH-WORDLIST  
-        IF  \  есть такое, 
-            NIP NIP
-            >BODY  @ \ выдать адрес структуры мнемоники
-        ELSE \ нету, создать
-            createMnemo
-        THEN
-        SWAP \ adr_strMnemo hlp 
-        createEncode
-        \ adr_strMnemo hlp adr_strEncode
-        TUCK .eHlp hung+ \ подключить помощника
-        \ adr_strMnemo adr_strEncode
-        OVER .mStr @ OVER .eMnemo ! 
-        SWAP .mAlt @ hung+
-        ALSO OperandsHandlers \ подключить обработчики операндов
-        0
-        ;
-
+    EXPORT \ создание структур команд
+        : Assm: ( <mnemonics> -- 0 ) \ создает или находит структуру 
+            \ ассемблерной команды <mnemonics>
+            \ возвращает ссылку на неё
+            [CHAR] V Phrase -BL createHlp \ hlp запомнить фразу команды в структуре помощника
+            BL WORD COUNT    \ hlp adr u - мнемоника во входном буфере
+            2DUP UPPERCASE-W \ ВСЕГДА В ВЕРХНЕМ РЕГИСТРЕ
+            2DUP GET-CURRENT SEARCH-WORDLIST  
+            IF  \  есть такое, 
+                NIP NIP
+                >BODY  @ \ выдать адрес структуры мнемоники
+            ELSE \ нету, создать
+                createMnemo
+            THEN
+            SWAP \ adr_strMnemo hlp 
+            createEncode
+            \ adr_strMnemo hlp adr_strEncode
+            TUCK .eHlp hung+ \ подключить помощника
+            \ adr_strMnemo adr_strEncode
+            OVER .mStr @ OVER .eMnemo ! 
+            SWAP .mAlt @ hung+
+            ALSO OperandsHandlers \ подключить обработчики операндов
+            0
+            ;
     DEFINITIONS
-
         : tagMask ( adr u tag -- маска) \ из строки adr u вида "0100000101mmmddd"
             \ сделать маску по тэгу(символу)
             \ маска - число у которого биты =1 
@@ -518,18 +493,15 @@ MODULE: Mcommands
             ( 0)
             R> DROP
             ;
-    EXPORT
-
-    : Encod: ( 0 n*[xt,tag] "encode" --  ) \ заполняет структуру кодирования 
-    \ потребляет операнды и мнемонику со стека
-        PREVIOUS \ отключить обработчики операндов
-        BL WORD COUNT fillEncode \ дополнить структуру
-        \ (0)
-        DROP
-        ;
-
-    DEFINITIONS
-    \ ============== слова помощники/описатели команд ===========================
+    EXPORT \ создание структур кодирования
+        : Encod: ( 0 n*[xt,tag] "encode" --  ) \ заполняет структуру кодирования 
+        \ потребляет операнды и мнемонику со стека
+            PREVIOUS \ отключить обработчики операндов
+            BL WORD COUNT fillEncode \ дополнить структуру
+            \ (0)
+            DROP
+            ;
+    DEFINITIONS \ ========= слова помощники/описатели команд ==============
         : chainHelp+ ( adr -- ) \ добавить Это место к помощникам
             encodes first .eHlp hung+ 
             ;
@@ -538,15 +510,13 @@ MODULE: Mcommands
             CREATE ,
             DOES> @ 4BLparse createHlp chainHelp+ 
             ;
-    EXPORT
+    EXPORT \ help по командам
 
-    CHAR A helper: Action: ( <str> --) \ строка описывающее действие команды
-    CHAR F helper: Flags:  ( <str> --) \ -*- флаги на которые влияет команда
-    CHAR C helper: Cycles: ( <str> --) \ -*- циклы
-    CHAR N helper: Notes:  ( <str> --) \ дополнительные замечания
-
+        CHAR A helper: Action: ( <str> --) \ строка описывающее действие команды
+        CHAR F helper: Flags:  ( <str> --) \ -*- флаги на которые влияет команда
+        CHAR C helper: Cycles: ( <str> --) \ -*- циклы
+        CHAR N helper: Notes:  ( <str> --) \ дополнительные замечания
     DEFINITIONS
-
         : tag. ( symbol --) \ развернуть тэг
             DUP [CHAR] V = IF ." Variant: " ELSE
             DUP [CHAR] A = IF ." Action : " ELSE
@@ -565,33 +535,26 @@ MODULE: Mcommands
             .hStr @ str# TYPE CR
             TRUE 
             ;
-    EXPORT
 
-    : help. ( nexus -- )
-         ['] extHlp extEach 
-        ;
-
-    DEFINITIONS
-
+        : help. ( nexus -- )
+             ['] extHlp extEach 
+            ;
         : extAhlp ( obj -- f)
             .eHlp @  help.
             4 tabul +!
             TRUE
             ;
-    EXPORT
+    EXPORT \ help по командам
 
-    : helpAsm ( <name> --) \ показать справку по команде <name>
-        CR BL WORD FIND
-        IF  0 tabul !
-            >BODY @ ( mnen)
-            .mAlt @ ['] extAhlp extEach 
-        ELSE DROP
-        THEN
-        ;
-
-    DEFINITIONS
-    \ слова лишние, но помогающие
-
+        : helpAsm ( <name> --) \ показать справку по команде <name>
+            CR BL WORD FIND
+            IF  0 tabul !
+                >BODY @ ( mnen)
+                .mAlt @ ['] extAhlp extEach 
+            ELSE DROP
+            THEN
+            ;
+    DEFINITIONS \ 
         : 32bit. ( u -- ) \ печатать 32-битное число в бинарном виде
             8 CELLS BIN[ U.0R ]BIN 
             ;
@@ -629,16 +592,16 @@ MODULE: Mcommands
         : extCmd ( obj -- f)
             4 tabul +! shwEncode SWAP TRUE 
             ;
-    EXPORT
+    EXPORT \ слова лишние, но помогающие показать структуру команд
 
-    : shwCmd ( xt --) \ показать команду полностью
-        0 tabul !
-        DUP shwMnemo
-        >BODY @ .mAlt @  ( nexus)
-        ['] extCmd extEach 
-        ; \ пример импользования: ' ANDS shwCmd
+        : shwCmd ( xt --) \ показать команду полностью
+            0 tabul !
+            DUP shwMnemo
+            >BODY @ .mAlt @  ( nexus)
+            ['] extCmd extEach 
+            ; \ пример импользования: ' ANDS shwCmd
 
-    #def langASM .( loaded) CR
+        #def langASM .( loaded) CR
 ;MODULE
 
 
