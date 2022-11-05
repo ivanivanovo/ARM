@@ -2,6 +2,12 @@
 \ слова для работы с файлами в формате intel-HEX
 \ автор: ~iva 2022 
 
+[IF_main] \ определено в spf4.ini
+    .( не предназначено для самостоятельного запуска) 
+    CR BYE
+[THEN]
+
+
 \ ======== ИНФО ================================================================
 ( Каждая запись представляет собой ASCII-строку файла. 
     Одна строка – одна запись.
@@ -50,10 +56,6 @@
 \ : hexSAVED ( c-adr u -- ) c-adr u - это строка с именем файла
 \ : SAVEhex ( "имя-файла" -- ) 
 \ ==============================================================================
-REQUIRE HEX[  toolbox.f
-REQUIRE segments segments.f
-
-[IF_main] CASE-INS OFF [THEN] \ для проверки регистра слов
 
 MODULE: Mihex
 
@@ -115,7 +117,7 @@ MODULE: Mihex
 
     : dat>Seg ( -- ) \ приём данных
         baseHex @  byteBuf .ofs 2 BigEndian@ + 
-        segBaseA @ OVER > IF segBaseA @ + THEN ORG
+        SEG .base @ OVER > IF SEG .base @ + THEN ORG
         byteBuf .len C@ 0
         DO byteBuf .dat I + C@ C>Seg LOOP
         ;
@@ -154,7 +156,7 @@ EXPORT
         R/O OPEN-FILE THROW fid !  
         recBuf szBuf fid @ READ-LINE THROW  \ считать первую запись  
         IF record \ один раз можно согласовать базы сегмента и hex  
-           segBaseA @ wender - 0= IF baseHex @ segBaseA ! THEN 
+           SEG .base @ wender - 0= IF baseHex @ SEG .base ! THEN 
         THEN
         \ цикл по остальным записям
         BEGIN
@@ -169,19 +171,6 @@ EXPORT
         BL WORD COUNT hexLOADED
         ;  
 
-    : binLOADED ( c-adr u -- )   
-        \ загрузить бинарный файл с именем в c-adr u в текущий сегмент
-        R/O OPEN-FILE THROW fid !  
-        fid @ FILE-SIZE THROW 
-        ?DUP ABORT" Огромный файл"
-        ?segBase + ORG
-        ?segAddr ?segWender fid @ READ-FILE THROW DROP 
-        fid @ CLOSE-FILE THROW
-        ;
-
-    : LOADbin ( "имя-файла" -- )
-        BL WORD COUNT binLOADED
-        ;  
 DEFINITIONS \ 2-я задача
     DECIMAL
     VARIABLE maxRECLEN  \ максимальный размер поля данных
@@ -245,7 +234,7 @@ DEFINITIONS
     : cntNoDef ( -- n) \ выдать число НЕ дефолтных символов
         byteBuf .typ C@ typDat = \ только в записях с данными
         IF byteBuf .dat byteBuf .len C@ TUCK
-           OVER + SWAP ?DO I C@ ?segDef = IF 1- THEN LOOP
+           OVER + SWAP ?DO I C@ SEG .defsym C@ = IF 1- THEN LOOP
         ELSE TRUE
         THEN
         ; 
@@ -270,9 +259,9 @@ DEFINITIONS
         ;
 
     : segBody! ( --) \ записать сегмент в hex-файл
-        ?segBase ORG \ установить указатель в начало сегмента
+        0 SEG .finger ! \ установить указатель в начало сегмента
         -1 byteBuf .len C! \ буфер еще не готов для записи в файл
-        wender ?segBase DO I toRec LOOP
+        wender SEG .base @ DO I toRec LOOP
         ;
 EXPORT
         
@@ -289,36 +278,5 @@ EXPORT
     : SAVEhex ( "имя-файла" -- )
         BL WORD COUNT hexSAVED
         ;
-
-    : binSAVED ( c-adr u --)    
-        \ сохранить текущий сегмент в bin-файл с именем в строке c-adr u
-        \ файл создается или перезаписывается без вопросов
-        W/O CREATE-FILE ABORT" Ошибка создания файла." fid !
-        ?segAddr ?segWender ?DUP IF fid @ WRITE-FILE THROW THEN
-        fid @ CLOSE-FILE THROW
-        ;
-
-    : SAVEbin ( "имя-файла" -- )
-        BL WORD COUNT binSAVED
-        ;
-
 ;MODULE
-
-\ примеры использования и тест
-[IF_main] \ определено в spf4.ini
-CASE-INS ON
-0xFF 0x08000000 0 256  createSeg: TST-SEG
-TST-SEG TO SEG
-\ LOADhex app1.hex
-\ LOADhex control_module_app1_w_boot_v2.7.4.hex
-\ LOADhex test-af.hex
-\ TST-SEG segDump CR
-LOADbin aa.bin
-?seg
-\ wideRec
-ALSO Mihex
-HEX
-SAVEhex aa.hex
-\ SAVEbin aa.bin
-[THEN]
 

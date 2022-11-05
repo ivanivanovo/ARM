@@ -36,34 +36,11 @@ MODULE: segments
         CELL -- .labels \ начало цепочки меток в этом сегменте
         1    -- .defsym \ дефолтное заначение наиспользованной области сегмента
         CONSTANT stuctSEG
+        VARIABLE fid \ идентификатор файла
     EXPORT
 
         0 VALUE SEG \ ссылка на структуру текущего сегмента
         chain: SegChain \ цепочка сегментов
-
-        : segBaseA ( -- adr) \ адрес переменной base текущего сегмента
-            SEG .base 
-            ;
-
-        : ?segAddr ( -- adr) \ выдать сегментный адрес памяти
-            SEG .adr @
-            ; 
-
-        : ?segBase ( -- base) \ base текущего сегмента
-            segBaseA @
-            ;
-
-        : ?segWender ( -- wender) \ выдать указатель конца записи
-            SEG .wender @
-            ; 
-
-        : ?segLabels ( -- nexus)
-            SEG .labels @
-            ;
-
-        : ?segDef ( -- sym) \ выдать сегментный симовол
-            SEG .defsym C@
-            ; 
     DEFINITIONS
 
         : name. ( seg --) \ напечатать имя сегмента
@@ -209,12 +186,45 @@ MODULE: segments
         : Seg>S (  -- adr u ) \ получить строку из сегмента
             \ как строку со счетчиком
             Seg>C SEG>u COUNT
-            ;    
+            ; 
+
+        : binLOADED ( c-adr u -- )   
+            \ загрузить бинарный файл с именем в c-adr u в текущий сегмент
+            R/O OPEN-FILE THROW fid !  
+            fid @ FILE-SIZE THROW 
+            ABORT" Огромный файл"
+            0 SEG .finger ! 0 SEG .wender ! \ сброс указателей
+            finger> \ расширить сегмент до размера файла (если нужно)
+            SEG .adr @ SEG .wender @ fid @ READ-FILE THROW DROP 
+            fid @ CLOSE-FILE THROW
+            ;
+
+        : LOADbin ( "имя-файла" -- )
+            BL WORD COUNT binLOADED
+            ;  
+
+        : binSAVED ( c-adr u --)    
+            \ сохранить текущий сегмент в bin-файл с именем в строке c-adr u
+            \ файл создается или перезаписывается без вопросов
+            SEG .wender @  
+            IF W/O CREATE-FILE ABORT" Ошибка создания файла." fid !
+               SEG .adr @ SEG .wender @
+               fid @ WRITE-FILE THROW 
+               fid @ CLOSE-FILE THROW
+            ELSE 2DROP
+            THEN
+            ;
+
+        : SAVEbin ( "имя-файла" -- )
+            BL WORD COUNT binSAVED
+            ;
+        \ работа с hex-файлами    
+        REQUIRE SAVEhex Mihex.f    
 ;MODULE
 
 \ ======== ТЕСТЫ И ПРИМЕРЫ =====================================================
 [IF_main] \ определено в spf4.ini
-    0xFF 0x08000000 30  22 createSeg: ROM-SEG
+    0xFF 0x08000000 0  22 createSeg: ROM-SEG
     ROM-SEG TO SEG
     0x123 >seg
     SEG SEGdump
@@ -228,14 +238,13 @@ MODULE: segments
     4 C>seg
     5 C>seg
     SEG SEGdump
-    \ ?seg CR
-    0 0x800100 200 127 createSeg:  tmp
-    tmp TO SEG
-    \ ?seg CR
-    0 0x800200 200 10 createSeg:  tmp2
-    tmp2 TO SEG
-    \ ?seg CR
-    
-    tup TO SEG
     CR lsSEG
+
+    ROM-SEG TO SEG
+    LOADhex test-af.hex
+    SAVEbin aa.bin
+    SAVEhex aa.hex
+    LOADbin aa.bin
+    SAVEhex bb.hex
+
 [THEN]

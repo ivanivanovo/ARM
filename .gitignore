@@ -19,3 +19,4 @@ _autosave-*
 *.d
 /*.txt
 *.hex
+*.bin
