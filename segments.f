@@ -40,6 +40,30 @@ MODULE: segments
 
         0 VALUE SEG \ ссылка на структуру текущего сегмента
         chain: SegChain \ цепочка сегментов
+
+        : segBaseA ( -- adr) \ адрес переменной base текущего сегмента
+            SEG .base 
+            ;
+
+        : ?segAddr ( -- adr) \ выдать сегментный адрес памяти
+            SEG .adr @
+            ; 
+
+        : ?segBase ( -- base) \ base текущего сегмента
+            segBaseA @
+            ;
+
+        : ?segWender ( -- wender) \ выдать указатель конца записи
+            SEG .wender @
+            ; 
+
+        : ?segLabels ( -- nexus)
+            SEG .labels @
+            ;
+
+        : ?segDef ( -- sym) \ выдать сегментный симовол
+            SEG .defsym C@
+            ; 
     DEFINITIONS
 
         : name. ( seg --) \ напечатать имя сегмента
@@ -66,7 +90,7 @@ MODULE: segments
             THEN 
             DROP
             ;
-
+            
         : finger! ( u --) \ установить указатель
             >R
             R@ resize?
@@ -77,7 +101,7 @@ MODULE: segments
         : finger> ( u --) \ передвинуть указатель на u байт
             SEG .finger @ + finger! 
             ;    
-
+            
         : u>SEG ( u -- adr) \ дать адрес для записи u байт в сегмент
             SEG .finger @ 
             SWAP finger>
@@ -85,8 +109,9 @@ MODULE: segments
             ;
 
         : SEG>u ( u -- adr) \ дать адрес для чтения u байт из сегмента
-            SEG .finger @ TUCK +
+            SEG .finger @ 2DUP +
             SEG .wender @ > ABORT" Незаписано."
+            SWAP finger>
             SEG .adr @ + 
             ;
 
@@ -132,10 +157,6 @@ MODULE: segments
             SEG IF SEG .seg THEN
             ;
 
-        : segLabels ( -- nexus)
-            SEG .labels @
-            ;
-
         : lsSEG ( -- ) \ выдать список всех сегментов
             SegChain  
             IF SegChain ['] (.seg) extEach 
@@ -148,15 +169,15 @@ MODULE: segments
             ;
 
         : ORG ( u -- ) \ установить указатель сегмента
-            SEG .base @ - DUP 0< ABORT" Неверный адрес."
+            SEG .base @ - DUP 0< ABORT" Неверный адрес внутри сегмента."
             finger! 
             ;
         
-        : finger ( -- baseAdr) \ получить целевой адрес
+        : finger ( -- segAdr) \ получить целевой адрес
             SEG .base @
             SEG .finger @ +
             ;
-        : wender ( -- baseAdr) \ получить целевой адрес
+        : wender ( -- segAdr) \ получить целевой адрес
             SEG .base @
             SEG .wender @ +
             ;

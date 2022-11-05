@@ -29,7 +29,7 @@
      |  |     |      05 - линейный адрес старта "Start Linear Address Record"
      |  |     |      RECTYP
      |  |     смещение, старший байт впереди 
-     |  |     LOAD OFFSET
+     |  |     LOAD.ofsSET
      |  количество байт в поле данных 
      |  RECLEN
      маркер записи
@@ -42,26 +42,24 @@
 \ ======== ЗАДАЧИ ==============================================================
 \ 1-ая задача: 
 \ нужно открыть файл, прочитать его с контролем, разместить данные в текущем сегменте 
-\ : HEX-LOAD ( c-adr u -- ) c-adr u - это строка с именем файла
-\ : LOAD-AS-HEX ( "имя-файла" -- )  
+\ : hexLOADED ( c-adr u -- ) c-adr u - это строка с именем файла
+\ : LOADhex ( "имя-файла" -- )  
 
 \ 2-ая задача:
 \ сохранить данные из текущего сегмента в файл в hex-формате
-\ : HEX-SAVE ( c-adr u -- ) c-adr u - это строка с именем файла
-\ : SAVE-AS-HEX ( "имя-файла" -- ) 
+\ : hexSAVED ( c-adr u -- ) c-adr u - это строка с именем файла
+\ : SAVEhex ( "имя-файла" -- ) 
 \ ==============================================================================
-REQUIRE alloc heap.f
 REQUIRE HEX[  toolbox.f
 REQUIRE segments segments.f
 
+[IF_main] CASE-INS OFF [THEN] \ для проверки регистра слов
 
-MODULE: IHEX
+MODULE: Mihex
 
     DECIMAL
     VARIABLE fid \ идентификатор файла
-    VARIABLE maxRECLEN  16 maxRECLEN ! \ максимальный размер поля данных
     \ учитывается при формировании записей
-    \ 32 IHEX::maxRECLEN !  так можно изменить размер
     00 CONSTANT typDat \ "Data Record"
     01 CONSTANT typEOF \ "End of File Record"
     02 CONSTANT typESA \ "Extended Segment Address Record"
@@ -69,12 +67,12 @@ MODULE: IHEX
     04 CONSTANT typELA \ "Extended Linear Address Record"
     05 CONSTANT typSLA \ "Start Linear Address Record"
 
-    VARIABLE baseAddr  0 baseAddr  ! \ базовый адрес загрузки
-    VARIABLE startAddr 0 startAddr ! \ стартовый адрес прошивки
+    VARIABLE baseHex  0 baseHex  ! \ базовый адрес загрузки
+    VARIABLE startHex 0 startHex ! \ стартовый адрес прошивки
 
-    0 \ структура записи (в байтах)
+    0 \ структура двоичной записи (в байтах)
       1 -- .len
-      2 -- .off
+      2 -- .ofs
       1 -- .typ
     256 -- .dat \ максимально возможный размер данных (255) + 1 на CRC
     CONSTANT structRec
@@ -104,26 +102,33 @@ MODULE: IHEX
         0xFF AND ABORT" Ошибка CRC записи"
         ;
 
-    : BigEndian@ ( adr u -- n) \ взять число в BigEndian@ нотации
+    : BigEndian@ ( adr u -- n) \ взять число в BigEndian нотации
         0 -ROT OVER + SWAP
         DO 8 LSHIFT I C@ + LOOP
         ;
 
+    : BigEndian! ( n adr u -- ) \ записать u байт числа n по адресу adr 
+        \ в BigEndian нотации
+        1- OVER + 
+        DO 0x100 /MOD SWAP I C! -1 +LOOP DROP
+        ;
+
     : dat>Seg ( -- ) \ приём данных
-        baseAddr @  byteBuf .off 2 BigEndian@ + ORG
+        baseHex @  byteBuf .ofs 2 BigEndian@ + 
+        segBaseA @ OVER > IF segBaseA @ + THEN ORG
         byteBuf .len C@ 0
         DO byteBuf .dat I + C@ C>Seg LOOP
         ;
 
-     DECIMAL   
+    DECIMAL   
     : parseRec ( --) \ разбор записи
         byteBuf .typ C@
         DUP typDat = IF dat>Seg ELSE
         DUP typEOF = IF ELSE
-        DUP typESA = IF byteBuf .dat 2 BigEndian@  4 LSHIFT baseAddr  ! ELSE
-        DUP typSSA = IF byteBuf .dat 4 BigEndian@           startAddr ! ELSE
-        DUP typELA = IF byteBuf .dat 2 BigEndian@ 16 LSHIFT baseAddr  ! ELSE
-        DUP typSLA = IF byteBuf .dat 4 BigEndian@           startAddr ! ELSE 
+        DUP typESA = IF byteBuf .dat 2 BigEndian@  4 LSHIFT baseHex  ! ELSE
+        DUP typSSA = IF byteBuf .dat 4 BigEndian@           startHex ! ELSE
+        DUP typELA = IF byteBuf .dat 2 BigEndian@ 16 LSHIFT baseHex  ! ELSE
+        DUP typSLA = IF byteBuf .dat 4 BigEndian@           startHex ! ELSE 
                      ABORT" Неверный тип записи"
         THEN THEN THEN THEN THEN THEN DROP
         ;
@@ -138,47 +143,182 @@ MODULE: IHEX
         ELSE DROP
         THEN
         ;
-
+        
+    : file@ ( -- n) \ считать строку из файла
+        recBuf szBuf fid @ READ-LINE THROW
+        ;
 EXPORT
 
-    : HEX-LOAD ( c-adr u -- )   
+    : hexLOADED ( c-adr u -- )   
         \ загрузить файл с именем в c-adr u в текущий сегмент
         R/O OPEN-FILE THROW fid !  
+        recBuf szBuf fid @ READ-LINE THROW  \ считать первую запись  
+        IF record \ один раз можно согласовать базы сегмента и hex  
+           segBaseA @ wender - 0= IF baseHex @ segBaseA ! THEN 
+        THEN
+        \ цикл по остальным записям
         BEGIN
-            recBuf szBuf fid @ READ-LINE THROW  \ считать_запись  
+            file@   \ считать_запись  
         WHILE \ данные
             record
         REPEAT
         DROP fid @ CLOSE-FILE THROW
         ;
 
-    : LOAD-AS-HEX ( "имя-файла" -- )
-        BL WORD COUNT HEX-LOAD
+    : LOADhex ( "имя-файла" -- )
+        BL WORD COUNT hexLOADED
         ;  
 
-    : HEX-SAVE ( c-adr u --) 
-        \ сохранить текщий сегмент в файл с именем в строке c-adr u
-        \ файл создается или перезаписывается без вопросов
-        W/O CREATE-FILE ABORT" Ошибка создания файла." fid !
-
-
-        S" :00000001FF" fid @ WRITE-LINE THROW  \ последняя запись
+    : binLOADED ( c-adr u -- )   
+        \ загрузить бинарный файл с именем в c-adr u в текущий сегмент
+        R/O OPEN-FILE THROW fid !  
+        fid @ FILE-SIZE THROW 
+        ?DUP ABORT" Огромный файл"
+        ?segBase + ORG
+        ?segAddr ?segWender fid @ READ-FILE THROW DROP 
         fid @ CLOSE-FILE THROW
         ;
 
-    : SAVE-AS-HEX ( "имя-файла" -- )
-        BL WORD COUNT HEX-SAVE
+    : LOADbin ( "имя-файла" -- )
+        BL WORD COUNT binLOADED
+        ;  
+DEFINITIONS \ 2-я задача
+    DECIMAL
+    VARIABLE maxRECLEN  \ максимальный размер поля данных
+EXPORT
+    \ писать или нет строки целиком состоящих их дефолтных символов
+    VARIABLE shortHex   
+    shortHex ON \ не писать
+
+    : shortRec ( --) \ установить короткую длину записей
+        16 maxRECLEN !
+        ;
+    shortRec
+
+    : wideRec ( --) \ установить широкую длину записей
+        32 maxRECLEN !
+        ;
+DEFINITIONS
+
+    : toSym ( -- adr u) \ преобразовать байтовую запись в hex-строку
+        byteBuf DUP .len C@ 5 + \ adr1 u1 
+        S" :" >S
+        OVER + SWAP HEX[ DO I C@ 0 <# # # #> +>S LOOP ]HEX
+        S>
         ;
 
-DEFINITIONS
+    : hexCRC ( adr u -- crc) \ расчитать контрольный байт
+        0x100 -ROT
+        OVER + SWAP DO I C@ - LOOP 
+        0xFF AND
+        ;
+
+    : ELArecord ( base --) \ записать базовый адрес
+        DUP baseHex !
+        16 RSHIFT byteBuf .dat 2 BigEndian!
+             2 byteBuf .len C!
+             0 byteBuf .ofs W!
+        typELA byteBuf .typ C!
+        ;
+
+    : SLArecord ( -- ) \ стартовая запись
+        startHex @ ?DUP
+        IF byteBuf .dat 4 BigEndian!
+                4 byteBuf .len C!
+                0 byteBuf .ofs W!
+           typSLA byteBuf .typ C!
+        THEN
+        ;
+
+    : NewDatRecord ( ofs --) \ новая запись данных
+               byteBuf .ofs 2 BigEndian!
+             0 byteBuf .len C!
+        typDat byteBuf .typ C!  
+        ;
+
+    : EOFrecord ( --) \ последняя запись
+             0 byteBuf .len C!
+             0 byteBuf .ofs W!
+        typEOF byteBuf .typ C!  
+        ;
+
+    : cntNoDef ( -- n) \ выдать число НЕ дефолтных символов
+        byteBuf .typ C@ typDat = \ только в записях с данными
+        IF byteBuf .dat byteBuf .len C@ TUCK
+           OVER + SWAP ?DO I C@ ?segDef = IF 1- THEN LOOP
+        ELSE TRUE
+        THEN
+        ; 
+    
+    : rec2file ( --) \ запись в файл
+        \ с пропуском пустых записей (заполненых дефолтным символом)
+        byteBuf .len C@ maxRECLEN @ > IF EXIT THEN
+        shortHex @ IF cntNoDef ELSE TRUE THEN
+        IF byteBuf DUP .len C@ 0 .dat + 2DUP hexCRC
+           -ROT + C!
+           toSym fid @ WRITE-LINE THROW 
+           -1 byteBuf .len C!
+        THEN  
+        ;
+
+    : toRec ( adr --) \ упаковать [adr] в запись
+        DUP baseHex @ - 0x10000 MOD 0= IF rec2file DUP ELArecord THEN \ новая база
+        baseHex @ - \ ofs 
+        DUP maxRECLEN @ MOD TUCK 0= IF rec2file NewDatRecord ELSE DROP THEN \ новая запись
+        ( idxRec) byteBuf .dat + Seg>C SWAP C!
+        1 byteBuf .len +! 
+        ;
+
+    : segBody! ( --) \ записать сегмент в hex-файл
+        ?segBase ORG \ установить указатель в начало сегмента
+        -1 byteBuf .len C! \ буфер еще не готов для записи в файл
+        wender ?segBase DO I toRec LOOP
+        ;
+EXPORT
+        
+    : hexSAVED ( c-adr u --) 
+        \ сохранить текущий сегмент в hex-файл с именем в строке c-adr u
+        \ файл создается или перезаписывается без вопросов
+        W/O CREATE-FILE ABORT" Ошибка создания файла." fid !
+        segBody!  rec2file
+        SLArecord rec2file
+        EOFrecord rec2file  \ последняя запись
+        fid @ CLOSE-FILE THROW
+        ;
+
+    : SAVEhex ( "имя-файла" -- )
+        BL WORD COUNT hexSAVED
+        ;
+
+    : binSAVED ( c-adr u --)    
+        \ сохранить текущий сегмент в bin-файл с именем в строке c-adr u
+        \ файл создается или перезаписывается без вопросов
+        W/O CREATE-FILE ABORT" Ошибка создания файла." fid !
+        ?segAddr ?segWender ?DUP IF fid @ WRITE-FILE THROW THEN
+        fid @ CLOSE-FILE THROW
+        ;
+
+    : SAVEbin ( "имя-файла" -- )
+        BL WORD COUNT binSAVED
+        ;
 
 ;MODULE
 
 \ примеры использования и тест
 [IF_main] \ определено в spf4.ini
+CASE-INS ON
 0xFF 0x08000000 0 256  createSeg: TST-SEG
 TST-SEG TO SEG
-LOAD-AS-HEX app1.hex
-\ TST-SEG segDump
+\ LOADhex app1.hex
+\ LOADhex control_module_app1_w_boot_v2.7.4.hex
+\ LOADhex test-af.hex
+\ TST-SEG segDump CR
+LOADbin aa.bin
+?seg
+\ wideRec
+ALSO Mihex
+HEX
+SAVEhex aa.hex
+\ SAVEbin aa.bin
 [THEN]
 
