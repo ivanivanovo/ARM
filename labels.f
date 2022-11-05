@@ -14,7 +14,7 @@ REQUIRE enqueueNOTFOUND nf-ext.f
 REQUIRE alloc           heap.f
 REQUIRE SEG             segments.f
 REQUIRE curSrc          filist.f
-REQUIRE segLabels       segments.f
+REQUIRE ?segLabels       segments.f
 
 chain: allLabels \ все метки в одной цепочке
 
@@ -43,8 +43,8 @@ MODULE: Mlabels
         CURSTR @ R@ .line !
         >IN @ SWAP - R@ .pos ! \ type
                  R@ .type !
-        R@ allLabels +hung \ ввести в цепочку меток
-        R> segLabels +hung \ ввести в цепочку меток сегмента
+        R@ allLabels  +hung \ ввести в цепочку меток
+        R> ?segLabels +hung \ ввести в цепочку меток сегмента
         DOES> @ DUP .cnt 1+! .adr @
         ;
 

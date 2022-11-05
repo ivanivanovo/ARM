@@ -37,10 +37,35 @@ MODULE: segments
         1    -- .defsym \ дефолтное заначение наиспользованной области сегмента
         CONSTANT stuctSEG
         VARIABLE fid \ идентификатор файла
+
     EXPORT
 
         0 VALUE SEG \ ссылка на структуру текущего сегмента
         chain: SegChain \ цепочка сегментов
+        : ?segLabels ( -- nexus)
+            SEG .labels @
+            ;
+
+        \ : segBaseA ( -- adr) \ адрес переменной base текущего сегмента
+        \     SEG .base 
+        \     ;
+
+        \ : ?segAddr ( -- adr) \ выдать сегментный адрес памяти
+        \     SEG .adr @
+        \     ; 
+
+        \ : ?segBase ( -- base) \ base текущего сегмента
+        \     segBaseA @
+        \     ;
+
+        \ : ?segWender ( -- wender) \ выдать указатель конца записи
+        \     SEG .wender @
+        \     ; 
+
+
+        \ : ?segDef ( -- sym) \ выдать сегментный симовол
+        \     SEG .defsym C@
+        \     ; 
     DEFINITIONS
 
         : name. ( seg --) \ напечатать имя сегмента

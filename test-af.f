@@ -30,7 +30,7 @@ ROM-SEG TO SEG
 
 C[ test-af.s ]C
 
-SEG SEGdump CR
+SAVEhex test-af.hex
 \ dbg ON
 \ hex
 \ errChain chPrint
