@@ -136,11 +136,14 @@ MODULE: segments
             (.seg) DROP
             ;   
     EXPORT
-        \ 0xFF max size createSeg: ROM-SEG
-        : createSeg: ( sym base limit size <name> --)
+        \ 0xFF 0x800000 max createSeg: ROM-SEG
+        : createSeg: ( sym base limit <name> --)
         \ новое слово <name> выдает адрес структуры
+        \ сегмент создается с минимальным размером 256 байт
+        \ если он не превышает лимит
             >IN @ >R
-                CREATE DUP >R ALLOCATE THROW
+                CREATE 
+                256 OVER ?DUP IF MIN THEN DUP >R ALLOCATE THROW
                 HERE stuctSEG 0 FILL
                 HERE SegChain hung+ \ в цепочку
                 HERE .adr !
@@ -249,13 +252,13 @@ MODULE: segments
 
 \ ======== ТЕСТЫ И ПРИМЕРЫ =====================================================
 [IF_main] \ определено в spf4.ini
-    0xFF 0x08000000 0  22 createSeg: ROM-SEG
+    0xFF 0x08000000 0   createSeg: ROM-SEG
     ROM-SEG TO SEG
     0x123 >seg
     SEG SEGdump
     ?seg CR
     
-    0 0x800000 1024 127 createSeg:  tup
+    0 0x800000 24 createSeg:  tup
     tup TO SEG
     1 C>seg
     2 C>seg
@@ -271,5 +274,8 @@ MODULE: segments
     SAVEhex aa.hex
     LOADbin aa.bin
     SAVEhex bb.hex
-
+    sh cp aa.hex aa1.hex
+    sh echo "\nDEV_VER:0.2\nFIRM_VER:0.1.0\nDEV_VID:3\nDEV_PID:1\nHASH:650b2121\n" >> aa1.hex
+    LOADhex aa1.hex
+    SAVEhex bb1.hex
 [THEN]

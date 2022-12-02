@@ -14,7 +14,7 @@ REQUIRE enqueueNOTFOUND nf-ext.f
 REQUIRE alloc           heap.f
 REQUIRE SEG             segments.f
 REQUIRE curSrc          filist.f
-REQUIRE ?segLabels       segments.f
+REQUIRE ?segLabels      segments.f
 
 chain: allLabels \ все метки в одной цепочке
 
