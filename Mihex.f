@@ -2,12 +2,8 @@
 \ слова для работы с файлами в формате intel-HEX
 \ автор: ~iva 2022 
 
-[IF_main] \ определено в spf4.ini
-    CR .( не предназначено для самостоятельного запуска) 
-    CR .( ======  запускай segments.f =========)
-    CR BYE
-[THEN]
-
+REQUIRE HEX[ toolbox.f
+REQUIRE SEG  segments.f
 
 \ ======== ИНФО ================================================================
 ( Каждая запись представляет собой ASCII-строку файла. 
@@ -50,15 +46,15 @@
 \ 1-ая задача: 
 \ нужно открыть файл, прочитать его с контролем, разместить данные в текущем сегменте 
 \ : hexLOADED ( c-adr u -- ) c-adr u - это строка с именем файла
-\ : LOADhex ( "имя-файла" -- )  
+\ : LOADhex ( <имя-файла> -- )  
 
 \ 2-ая задача:
 \ сохранить данные из текущего сегмента в файл в hex-формате
 \ : hexSAVED ( c-adr u -- ) c-adr u - это строка с именем файла
-\ : SAVEhex ( "имя-файла" -- ) 
+\ : SAVEhex ( <имя-файла> -- ) 
 \ ==============================================================================
 
-MODULE: Mihex
+MODULE: m:Ihex
 
     DECIMAL
     VARIABLE fid \ идентификатор файла
@@ -116,9 +112,17 @@ MODULE: Mihex
         DO 0x100 /MOD SWAP I C! -1 +LOOP DROP
         ;
 
+    VARIABLE firstRec \ флаг первой записи baseHex
     : dat>Seg ( -- ) \ приём данных
-        baseHex @  byteBuf .ofs 2 BigEndian@ + 
-        SEG .base @ OVER > IF SEG .base @ + THEN ORG
+        baseHex @ byteBuf .ofs 2 BigEndian@ + 
+        firstRec @ 
+        IF firstRec OFF
+           \ тут можно согласовать базы сегмента (пустого!) и hex-файла
+           wender 0= IF DUP SEG segments::.base ! THEN 
+                \ эта проверка позволит загружать несколько файлов в один сегмент
+                \ складываются или накладываются
+        THEN
+        ORG
         byteBuf .len C@ 0
         DO byteBuf .dat I + C@ C>Seg LOOP
         ;
@@ -135,7 +139,6 @@ MODULE: Mihex
                      ABORT" Неверный тип записи"
         THEN THEN THEN THEN THEN THEN DROP
         ;
-    
     : record ( n -- ) \ обработка считанной записи 
         \ n-количество принятых символов
         recBuf C@ [CHAR] : =
@@ -155,11 +158,8 @@ EXPORT
     : hexLOADED ( c-adr u -- )   
         \ загрузить файл с именем в c-adr u в текущий сегмент
         R/O OPEN-FILE THROW fid !  
-        recBuf szBuf fid @ READ-LINE THROW  \ считать первую запись  
-        IF record \ один раз можно согласовать базы сегмента и hex  
-           SEG .base @ wender - 0= IF baseHex @ SEG .base ! THEN 
-        THEN
-        \ цикл по остальным записям
+        0 baseHEX ! firstRec ON  
+        \ цикл по записям
         BEGIN
             file@   \ считать_запись  
         WHILE \ данные
@@ -168,7 +168,7 @@ EXPORT
         DROP fid @ CLOSE-FILE THROW
         ;
 
-    : LOADhex ( "имя-файла" -- )
+    : LOADhex ( <имя-файла> -- )
         BL WORD COUNT hexLOADED
         ;  
 
@@ -210,6 +210,14 @@ DEFINITIONS
              0 byteBuf .ofs W!
         typELA byteBuf .typ C!
         ;
+    
+    \ нет нужды использовать этот тип записи
+    \ : ESArecord ( base --) \ записать сегментный базовый адрес
+    \     4 RSHIFT byteBuf .dat 2 BigEndian!
+    \          2 byteBuf .len C!
+    \          0 byteBuf .ofs W!
+    \     typESA byteBuf .typ C!
+    \     ;
 
     : SLArecord ( -- ) \ стартовая запись
         startHex @ ?DUP
@@ -235,7 +243,7 @@ DEFINITIONS
     : cntNoDef ( -- n) \ выдать число НЕ дефолтных символов
         byteBuf .typ C@ typDat = \ только в записях с данными
         IF byteBuf .dat byteBuf .len C@ TUCK
-           OVER + SWAP ?DO I C@ SEG .defsym C@ = IF 1- THEN LOOP
+           OVER + SWAP ?DO I C@ SEG segments::.defsym C@ = IF 1- THEN LOOP
         ELSE TRUE
         THEN
         ; 
@@ -260,9 +268,9 @@ DEFINITIONS
         ;
 
     : segBody! ( --) \ записать сегмент в hex-файл
-        0 SEG .finger ! \ установить указатель в начало сегмента
+        ?segBase ORG \ установить указатель в начало сегмента
         -1 byteBuf .len C! \ буфер еще не готов для записи в файл
-        wender SEG .base @ DO I toRec LOOP
+        wender ?segBase DO I toRec LOOP
         ;
 EXPORT
         
@@ -276,8 +284,31 @@ EXPORT
         fid @ CLOSE-FILE THROW
         ;
 
-    : SAVEhex ( "имя-файла" -- )
+    : SAVEhex ( <имя-файла> -- )
         BL WORD COUNT hexSAVED
         ;
 ;MODULE
 
+\ ======== ТЕСТЫ И ПРИМЕРЫ =====================================================
+[IF_main] \ определено в spf4.ini
+    0xFF 0x08000000 0   createSeg: ROM-SEG
+    ROM-SEG TO SEG
+    0x00 C>Seg
+    0x12 C>Seg
+    0x5634 W>Seg
+    0x9078 W>Seg
+    0x78563412 >Seg
+    S" test string" S>Seg
+    SEG SEGdump
+    ?seg CR
+    
+    ROM-SEG TO SEG
+    SAVEbin aa.bin
+    SAVEhex aa.hex
+    LOADbin aa.bin
+    SAVEhex bb.hex
+    sh cp aa.hex aa1.hex
+    sh echo "\nDEV_VER:0.2\nFIRM_VER:0.1.0\nDEV_VID:3\nDEV_PID:1\nHASH:650b2121\n" >> aa1.hex
+    LOADhex aa1.hex
+    SAVEhex bb1.hex
+[THEN]

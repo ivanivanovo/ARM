@@ -154,7 +154,7 @@ HEX[
     ;  
 : ,L ( n u -- adr u) \ преобразовать число n строку размером u или больше
     SWAP 1 ,R >S
-    S@ NIP - DUP 0< 0= IF 0 DO BL EMIT>S LOOP ELSE DROP THEN
+    S@ NIP - DUP 0 > IF 0 DO BL EMIT>S LOOP ELSE DROP THEN
     S>
     ;
 : .L ( n u --) \ напечатать число n в поле шириной u, левое выравниваие 

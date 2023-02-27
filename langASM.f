@@ -4,6 +4,7 @@ REQUIRE 2CONSTANT       lib/include/double.f
 REQUIRE toolbox         toolbox.f
 REQUIRE createLabel     labels.f
 REQUIRE errQuit         errorsEncode.f
+REQUIRE enqueueNOTFOUND nf-ext.f
 
 #def NOT 0= ( x --T|F) \ инверсия результата
     \ усли x=0 - FALSE, иначе TRUE

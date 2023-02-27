@@ -10,6 +10,8 @@
 \ asm? off bin> 10111000 <reg> type CR
 
 \ EOF \ локальные отладочные тесты
+REQUIRE SAVEhex     Mihex.f
+
 0xFF 0x08000000 0 createSeg: ROM-SEG
 ROM-SEG TO SEG
 

@@ -5,12 +5,7 @@ CASE-INS OFF
 : bye BYE ;
 VARIABLE dbg dbg OFF
 \ зависимости
-REQUIRE 2CONSTANT lib/include/double.f
-REQUIRE toolbox     toolbox.f
-REQUIRE >Seg        segments.f
 REQUIRE langASM     langASM.f 
-REQUIRE allLabels   labels.f
-
 \ зависимо от чипа
 S" ARMv6-Mset.f" INCLUDED
 
@@ -25,4 +20,5 @@ CASE-INS ON
 
 \ S" tsts.f" INCLUDED
 S" test-af.f" INCLUDED
+
 

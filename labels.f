@@ -9,12 +9,9 @@
 \ именно в этом сегменте. Таким образом каждая метка доступна как слово, по имени,
 \ или через цепочки (длинную и покороче), по любому полю.
 
-REQUIRE .HEX            toolbox.f
-REQUIRE enqueueNOTFOUND nf-ext.f
 REQUIRE alloc           heap.f
 REQUIRE SEG             segments.f
 REQUIRE curSrc          filist.f
-REQUIRE ?segLabels      segments.f
 
 chain: allLabels \ все метки в одной цепочке
 

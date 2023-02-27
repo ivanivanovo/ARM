@@ -27,7 +27,12 @@ EXPORT
     : first ( nexus -- obj) \ получить первый объект
         .hook @ \ объект
         ;
-        
+    
+    : ?first ( nexus -- obj TRUE|false) \ получить первый объект если он есть
+        DUP .used @ 
+        IF first TRUE ELSE DROP FALSE THEN
+        ;
+
     : tail ( nexus -- nexus'|0) \ получить хвост цепочки
         .next @ \ следующий или 0
         ;
@@ -139,8 +144,11 @@ EXPORT
         \ отсюда и до конца
         BEGIN DUP delnexus DUP tail 0= UNTIL
         delnexus
-        ;  
+        ;
 
+    : chGlue ( nexus1 nexus2 -- nexus1nexus2) \ склеивание цепочек
+        OVER last .next !
+        ;    
 ;MODULE 
 
 \ примеры использования и тест
@@ -160,6 +168,14 @@ EXPORT
     0 asd +hung
     CR asd chPrint
     CR asd chCount DUP . 7 = [IF] .( test OK) [ELSE] .( test FAIL) [THEN] CR
-    CR asd tail tail chClean asd chPrint 
+    CR asd tail tail chClean asd chPrint .( <=asd)
+    CR
+    chain: bcd
+    2 bcd hung
+    3 bcd hung+
+    4 bcd hung+
+    bcd chPrint .( <=bcd)
+    CR
+    asd bcd chGlue chPrint .( <=asd+bcd)
     CR
 [THEN] 

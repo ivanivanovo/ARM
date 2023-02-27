@@ -20,7 +20,7 @@
 \ 0 <=      finger         <=       wender           <= lim
 
 REQUIRE .HEX   toolbox.f
-REQUIRE chain: chains.f \ для свзывания сегментов в цепь
+REQUIRE chain: chains.f \ для связывания сегментов в цепь
 REQUIRE alloc  heap.f   \ для обращения к куче
 
 MODULE: segments
@@ -34,7 +34,7 @@ MODULE: segments
         CELL -- .finger \ свободный указатель, смещение от начала сегмента
         CELL -- .wender \ указатель конца записи, смещение от начала сегмента
         CELL -- .labels \ начало цепочки меток в этом сегменте
-        1    -- .defsym \ дефолтное заначение наиспользованной области сегмента
+        1    -- .defsym \ дефолтное значение неиспользованной области сегмента
         CONSTANT stuctSEG
         VARIABLE fid \ идентификатор файла
 
@@ -46,17 +46,17 @@ MODULE: segments
             SEG .labels @
             ;
 
-        \ : segBaseA ( -- adr) \ адрес переменной base текущего сегмента
-        \     SEG .base 
-        \     ;
+        : segBaseA ( -- adr) \ адрес переменной base текущего сегмента
+            SEG .base 
+            ;
 
-        \ : ?segAddr ( -- adr) \ выдать сегментный адрес памяти
-        \     SEG .adr @
-        \     ; 
+        : ?segAddr ( -- adr) \ выдать сегментный адрес памяти
+            SEG .adr @
+            ; 
 
-        \ : ?segBase ( -- base) \ base текущего сегмента
-        \     segBaseA @
-        \     ;
+        : ?segBase ( -- base) \ base текущего сегмента
+            segBaseA @
+            ;
 
         \ : ?segWender ( -- wender) \ выдать указатель конца записи
         \     SEG .wender @
@@ -66,10 +66,15 @@ MODULE: segments
         \ : ?segDef ( -- sym) \ выдать сегментный симовол
         \     SEG .defsym C@
         \     ; 
+        
+        : ,name ( seg -- adr u) \ выдать имя сегмента
+            .name @ str# ;
+        : ?segName ( -- adr u) \ выдать имя текущего сегмента 
+            SEG ,name ;   
     DEFINITIONS
 
         : name. ( seg --) \ напечатать имя сегмента
-            .name @ str# TYPE
+            ,name TYPE
             ;
 
         : defFill ( seg -- ) \ заполнить новое место дефолтным символом 
@@ -167,10 +172,29 @@ MODULE: segments
             IF SegChain ['] (.seg) extEach 
             THEN
             ;
+        
+        : [DUMP] ( adr u -- ) \ распечатать дамп в заданых границах 
+            \ с индексами
+            ?DUP 
+            IF  HEX[
+                    0 -ROT
+                    OVER + SWAP \ отображаемые адреса
+                    DO
+                        DUP 15  AND 0= IF CR DUP 10 .R SPACE THEN
+                        DUP 3   AND 0= IF ."  " THEN
+                        I C@ 2 .0R SPACE 
+                        1+
+                        DUP 255 AND 0= IF CR THEN
+                    LOOP DROP 
+                ]HEX
+            ELSE DROP ." Пусто." 
+            THEN CR
+            ;
 
         : SEGdump ( seg --) \ распечатать дамп записаной части сегмента
             CR
-            DUP .adr @ SWAP .wender @ DUMP
+            DUP .base @ ." 0x" 8 HEX[ .0R ]HEX SPACE DUP name.
+            DUP .adr @ SWAP .wender @ [DUMP]
             ;
 
         : ORG ( u -- ) \ установить указатель сегмента
@@ -227,7 +251,7 @@ MODULE: segments
             fid @ CLOSE-FILE THROW
             ;
 
-        : LOADbin ( "имя-файла" -- )
+        : LOADbin ( <имя-файла> -- )
             BL WORD COUNT binLOADED
             ;  
 
@@ -243,18 +267,21 @@ MODULE: segments
             THEN
             ;
 
-        : SAVEbin ( "имя-файла" -- )
+        : SAVEbin ( <имя-файла> -- )
             BL WORD COUNT binSAVED
             ;
-        \ работа с hex-файлами    
-        REQUIRE SAVEhex Mihex.f    
 ;MODULE
 
 \ ======== ТЕСТЫ И ПРИМЕРЫ =====================================================
 [IF_main] \ определено в spf4.ini
     0xFF 0x08000000 0   createSeg: ROM-SEG
     ROM-SEG TO SEG
-    0x123 >seg
+    0x00 C>Seg
+    0x12 C>Seg
+    0x5634 W>Seg
+    0x9078 W>Seg
+    0x78563412 >Seg
+    S" test string" S>Seg
     SEG SEGdump
     ?seg CR
     
@@ -268,14 +295,4 @@ MODULE: segments
     SEG SEGdump
     CR lsSEG
 
-    ROM-SEG TO SEG
-    LOADhex test-af.hex
-    SAVEbin aa.bin
-    SAVEhex aa.hex
-    LOADbin aa.bin
-    SAVEhex bb.hex
-    sh cp aa.hex aa1.hex
-    sh echo "\nDEV_VER:0.2\nFIRM_VER:0.1.0\nDEV_VID:3\nDEV_PID:1\nHASH:650b2121\n" >> aa1.hex
-    LOADhex aa1.hex
-    SAVEhex bb1.hex
 [THEN]
